@@ -1,6 +1,6 @@
 **Wizard Arena \- Design Document**
 
-**Team Member Roles: \*\*\*TBD\*\*\***  
+**Team Member Roles: 
 **David \-** Networking Lead / Server Lead / Gameplay / Spell Design  
 **Erik \-** Networking / Gameplay Lead / Art / Spell Design  
 **Jordan \-**  Networking / Client Systems Lead / Gameplay / Art / Spell Design
