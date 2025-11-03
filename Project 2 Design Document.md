@@ -1,7 +1,7 @@
 **Wizard Arena \- Design Document**
 
 **Team Member Roles: 
-**David \-** Networking Lead / Server Lead / Gameplay / Spell Design  
+**<br>David \-** Networking Lead / Server Lead / Gameplay / Spell Design  
 **Erik \-** Networking / Gameplay Lead / Art / Spell Design  
 **Jordan \-**  Networking / Client Systems Lead / Gameplay / Art / Spell Design
 
@@ -34,6 +34,20 @@ The first milestone is to get networking implemented, and have players control b
 <br/> All throughout the development process, there will be work done for sprites/animations for the spells, players, and arena.
 
 **High Bar:**
+**<br/>1\. Advanced spell interactions**
+<br/> Spells will have more complex interactions with each other, such as reflecting off walls, combining effects, or creating environmental hazards.
+**<br/>2\. Animated spell effects and player characters**
+<br/> Spells and player characters will have smooth animations and visual effects to enhance the gameplay experience.
+**<br/>3\. Multiple arena maps with unique layouts**
+<br/> There will be several different arena maps with unique layouts and obstacles
+**<br/>4\. Additional spells**
+<br/> There will be a wider variety of spells with different mechanics and effects
+**<br/>5\. Additional game modes**
+<br/> There will be additional game modes such as team deathmatch, king of the hill, or capture the flag.
+**<br/>6\. Destructible environment**
+<br/> Certain objects in the arena will be destructible as well as the arena itself
+**<br/>7\. Particle effects**
+<br/> There will be particle effects for spell, impacts, and environmental effects
 
 **Low Bar Checklist:**
 **<br/>1\. Enough different spells to fill an inventory** 
@@ -42,3 +56,21 @@ The first milestone is to get networking implemented, and have players control b
 <br/>Players will be 'sliding' around the arena smoothly, and not get stuck on objects.
 **<br/>3\. Player damage/death**
 <br/> Players will be able to attack and damage each other, and die until the current round is over.
+**<br/>4\. Basic networking (Listen Server)**
+<br/> First player hosts the game, other players can join by IP. State is synchronized in real time.
+**<br/>5\. Basic arena with obstacles and lava**
+<br/> There will be a simple arena with walls/obstacles and a lava circle that closes in over time.
+**<br/>6\. Game loop with rounds and winner declaration**
+<br/> Last player standing wins the round, first to 5 rounds wins the game. Rounds reset after a short delay.
+**<br/>7\. Spell casting with cooldowns**
+<br/> Players can select and cast spells from their inventory with cooldowns, and see the cooldown visually represented on the hotbar.
+**<br/>8\. Basic UI & HUD**
+<br/> There will be a basic UI showing player health, spell hotbar, and round timer, and win counter when holding tab.
+**<br/>9\. Power ups**
+<br/> There will be power ups that spawn around the arena that players can collect to gain advantages. There will be health potions, speed boosts, invisibility, no cooldowns, and overshield.
+**<br/>10\. Main Menu and Lobby**
+<br/> There will be a main menu where players can host or join games, and a lobby menu where players can wait for others to join before starting the game.
+**<br/>11\. Camera**
+<br/> The camera will follow the player smoothly, with edge panning that will still keep the player in view but also extend their vision.
+**<br/>12\. Art assets**
+<br/> There will be basic art assets for the players, spells, arena, and UI elements.
