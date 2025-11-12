@@ -46,20 +46,23 @@ public class MainMenuScreen extends ScreenAdapter {
         titleLabel.setColor(Color.WHITE);
 
         // buttons
-        TextButton playButton = new TextButton("Play", skin);
-        TextButton howToPlayButton = new TextButton("How to Play", skin);
+        TextButton hostButton = new TextButton("Host", skin);
+        TextButton joinButton = new TextButton("Join", skin);
         TextButton exitButton = new TextButton("Exit", skin);
 
         // add listeners
-        playButton.addListener(e -> {
-            if(!playButton.isPressed()) return false; // only trigger on press
-            game.setScreen(new PlayScreen(game));
+        hostButton.addListener(e -> {
+            if(!hostButton.isPressed()) return false; // only trigger on press
+            game.setScreen(new PlayScreen(game, true, null)); // start as host for now
             return true;
         });
 
-        howToPlayButton.addListener(e -> {
-            if (!howToPlayButton.isPressed()) return false;
-            return true; // do nothing for now
+        joinButton.addListener(e -> {
+            if (!joinButton.isPressed()) return false;
+            //TODO: prompt for IP
+            String ip = "192.168.1.42"; // placeholder IP for now
+            game.setScreen(new PlayScreen(game, false, ip));
+            return true;
         });
 
         exitButton.addListener(e -> {
@@ -71,8 +74,8 @@ public class MainMenuScreen extends ScreenAdapter {
         // assemble layout
         root.defaults().pad(10f);
         root.add(titleLabel).padTop(40f).row();
-        root.add(playButton).width(240f).height(56f).row();
-        root.add(howToPlayButton).width(240f).height(56f).row();
+        root.add(hostButton).width(240f).height(56f).row();
+        root.add(joinButton).width(240f).height(56f).row();
         root.add(exitButton).width(240f).height(56f).row();
 
         // input

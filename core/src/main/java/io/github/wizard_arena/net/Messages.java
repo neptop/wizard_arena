@@ -4,10 +4,10 @@ import java.io.Serializable;
 import java.util.List;
 
 public class Messages {
-    interface Msg extends Serializable {}
+    public interface Msg extends Serializable {}
 
     // client to server
-    class JoinRequest implements Msg {
+    public static class JoinRequest implements Msg {
         public String playerName;
         public JoinRequest() {}
         public JoinRequest(String playerName) {
@@ -16,7 +16,7 @@ public class Messages {
     }
 
     // server to client
-    class JoinResponse implements Msg {
+    public static class JoinResponse implements Msg {
         public boolean accepted;
         public String reason; // if not accepted
         public int clientId;
@@ -31,7 +31,7 @@ public class Messages {
     }
 
     // client to server on each frame
-    class InputUpdate implements Msg {
+    public static class InputUpdate implements Msg {
         public int clientId;
         public int seq; // input sequence number
         public float dt; // delta time since last input
@@ -41,25 +41,10 @@ public class Messages {
         public float aimY;
         public boolean castSpell; // spell casting input
         public boolean dash;
-
-        public InputUpdate() {
-        }
-
-        public InputUpdate(int clientId, int seq, float dt, float moveX, float moveY, float aimX, float aimY, boolean castSpell, boolean dash) {
-            this.clientId = clientId;
-            this.seq = seq;
-            this.dt = dt;
-            this.moveX = moveX;
-            this.moveY = moveY;
-            this.aimX = aimX;
-            this.aimY = aimY;
-            this.castSpell = castSpell;
-            this.dash = dash;
-        }
     }
 
     // server to client on each snapshot
-    class Snapshot implements Msg {
+    public static class Snapshot implements Msg {
         public int tick; // server tick number
         public long serverTime; // server timestamp
         public List<PlayerState> players;
@@ -68,7 +53,7 @@ public class Messages {
     }
 
     // player game state
-    class PlayerState implements Serializable {
+    public static class PlayerState implements Serializable {
         public int id;
         public float x;
         public float y;
@@ -83,7 +68,7 @@ public class Messages {
     }
 
     // projectile game state
-    class ProjectileState implements Msg {
+    public static class ProjectileState implements Msg {
         public int id;
         public float x;
         public float y;
@@ -100,7 +85,7 @@ public class Messages {
     }
 
     // client to server ping message
-    class Ping implements Msg {
+    public static class Ping implements Msg {
         public long clientTime;
         public Ping() {}
         public Ping(long clientTime) {
@@ -109,7 +94,7 @@ public class Messages {
     }
 
     // server to client pong message
-    class Pong implements Msg {
+    public static class Pong implements Msg {
         public long clientTime;
         public long serverTime;
         public Pong() {}
