@@ -18,22 +18,25 @@ public class Client {
     public int clientId = -1;
 
     public void connect(String host, int port, String name) throws IOException {
-        if (running) return; // already connected
-        running = true;
+        if (running) throw new IOException("Client is already connected");
 
         socket = new Socket();
         socket.setTcpNoDelay(true);
-        socket.connect(new InetSocketAddress(host, port), NetConfig.TIMEOUT_MS);
 
-        out = new ObjectOutputStream(socket.getOutputStream());
-        out.flush();
-        in = new ObjectInputStream(new BufferedInputStream(socket.getInputStream()));
-
-        // Send join request
-        send(new JoinRequest(name));
-
-        // wait for join response
         try {
+            // connect TCP
+            socket.connect(new InetSocketAddress(host, port), NetConfig.TIMEOUT_MS);
+
+            // setup streams
+            out = new ObjectOutputStream(socket.getOutputStream());
+            out.flush();
+            in = new ObjectInputStream(new BufferedInputStream(socket.getInputStream()));
+
+            // send join request
+            out.writeObject(new JoinRequest(name));
+            out.flush();
+
+            // wait for join response
             Object first = in.readObject();
             if (first instanceof JoinResponse) {
                 if (!((JoinResponse) first).accepted) {
@@ -43,28 +46,40 @@ public class Client {
             } else {
                 throw new IOException("Invalid join response from server");
             }
-        } catch (ClassNotFoundException e) {
-            throw new IOException("Failed to read join response", e);
-        }
 
-        // Start read thread
-        readThread = new Thread(() -> {
-            try {
-                while (running) {
-                    Object obj = in.readObject();
-                    if (obj instanceof Msg) {
-                        inbox.add((Msg) obj);
+            // connected
+            running = true;
+            System.out.println("Connected to server as client " + clientId);
+
+            // start read thread
+            readThread = new Thread(() -> {
+                try {
+                    while (running) {
+                        Object obj = in.readObject();
+                        if (obj instanceof Msg) {
+                            inbox.add((Msg) obj);
+                        }
                     }
+                } catch (IOException | ClassNotFoundException e) {
+                    // Connection lost or an error
+                } finally {
+                    running = false;
                 }
-            } catch (IOException | ClassNotFoundException e) {
-                // Connection lost or an error
-            }
-            finally {
-                running = false;
-            }
-        } , "Client-Read-Thread");
-        readThread.setDaemon(true);
-        readThread.start();
+            }, "Client-Read-Thread");
+            readThread.setDaemon(true);
+            readThread.start();
+
+        } catch (IOException | ClassNotFoundException e) {
+            // cleanup on failure
+            running = false;
+            clientId = -1;
+            try {
+                if (socket != null) socket.close();
+            } catch (IOException ignored) {}
+            socket = null;
+            out = null;
+            in = null;
+        }
     }
 
     public void send(Msg msg) throws IOException {
@@ -82,5 +97,9 @@ public class Client {
 
     public Msg pollMessage() {
         return inbox.poll();
+    }
+
+    public boolean isConnected() {
+        return running && socket != null && !socket.isClosed();
     }
 }

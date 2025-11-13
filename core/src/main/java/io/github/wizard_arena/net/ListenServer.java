@@ -114,6 +114,9 @@ public class ListenServer {
                 rx.start();
                 System.out.println("Client " + clientId + " connected.");
 
+                // logging
+                System.out.println("[Server] Client " + clientId + " connection from " + clientSocket.getRemoteSocketAddress());
+
             } catch (EOFException | SocketException e) {
                 // socket closed while accepting
                 if(running) System.out.println("Socket closed during accept: " + e.getMessage());

@@ -60,7 +60,7 @@ public class MainMenuScreen extends ScreenAdapter {
         joinButton.addListener(e -> {
             if (!joinButton.isPressed()) return false;
             //TODO: prompt for IP
-            String ip = "192.168.1.42"; // placeholder IP for now
+            String ip = "127.0.0.1"; // placeholder IP for now
             game.setScreen(new PlayScreen(game, false, ip));
             return true;
         });
