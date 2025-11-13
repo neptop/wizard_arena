@@ -8,7 +8,9 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
@@ -51,18 +53,30 @@ public class MainMenuScreen extends ScreenAdapter {
         TextButton exitButton = new TextButton("Exit", skin);
 
         // add listeners
-        hostButton.addListener(e -> {
-            if(!hostButton.isPressed()) return false; // only trigger on press
-            game.setScreen(new PlayScreen(game, true, null)); // start as host for now
-            return true;
+        hostButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                game.setScreen(new PlayScreen(game, true, null)); // start as host for now
+            }
         });
 
-        joinButton.addListener(e -> {
+        joinButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                //TODO: prompt for IP
+                String ip = "127.0.0.1"; // placeholder IP for now
+                Gdx.app.log("Button", "clicked");
+                game.setScreen(new PlayScreen(game, false, ip));
+
+            }
+            /*
             if (!joinButton.isPressed()) return false;
             //TODO: prompt for IP
             String ip = "127.0.0.1"; // placeholder IP for now
             game.setScreen(new PlayScreen(game, false, ip));
             return true;
+
+             */
         });
 
         exitButton.addListener(e -> {
