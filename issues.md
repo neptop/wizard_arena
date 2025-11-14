@@ -1,7 +1,7 @@
 ** Resolved Issues **
+- Issue 1: Networking listen server
 
 ** Open Issues **
-- Issue 1: Networking listen server
 - Issue 2: Implement player movement
 - Issue 3: Create basic arena
 - Issue 4: Synchronize player state in real time
