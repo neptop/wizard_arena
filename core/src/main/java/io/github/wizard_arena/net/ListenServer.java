@@ -16,6 +16,7 @@ public class ListenServer {
     private final Map<Integer, ClientHandler> clients = new ConcurrentHashMap<>();
     private final AtomicInteger clientIdCounter = new AtomicInteger(1);
     private final long serverStartTime = System.nanoTime();
+    private final Map<Integer, String> playerNames = new ConcurrentHashMap<>();
 
     private final Map<Integer, PlayerState> players = new ConcurrentHashMap<>(); // Map of clientId to PlayerState
     private final List<ProjectileState> projectiles = Collections.synchronizedList(new ArrayList<>()); // List of active projectiles
@@ -66,12 +67,18 @@ public class ListenServer {
 
                 // first message should be JoinRequest
                 Object firstMsg = in.readObject();
-                if (!(firstMsg instanceof Messages.JoinRequest)) {
+                if (!(firstMsg instanceof JoinRequest)) {
                     clientSocket.close();
                     continue;
                 }
 
+                JoinRequest joinRequest = (JoinRequest) firstMsg;
                 int clientId = clientIdCounter.getAndIncrement();
+
+                String playerName = (joinRequest.playerName != null && !joinRequest.playerName.isEmpty())
+                        ? joinRequest.playerName : "Player" + clientId;
+
+                playerNames.put(clientId, playerName);
                 players.put(clientId, new PlayerState(clientId, 100 + clientId * 20, 100, 100f)); // spawn player at position
 
                 // send JoinResponse
@@ -105,6 +112,8 @@ public class ListenServer {
                         players.remove(clientId);
                         closeClient(clients.get(clientId));
                         clients.remove(clientId);
+                        playerNames.remove(clientId);
+                        broadcastLobbyUpdate(); // notify all clients of updated lobby state
                     }
                 }, "Client-RX-" + clientId);
 
@@ -113,6 +122,7 @@ public class ListenServer {
                 rx.setDaemon(true);
                 rx.start();
                 System.out.println("Client " + clientId + " connected.");
+                broadcastLobbyUpdate(); // notify all clients of new lobby state
 
                 // logging
                 System.out.println("[Server] Client " + clientId + " connection from " + clientSocket.getRemoteSocketAddress());
@@ -201,5 +211,19 @@ public class ListenServer {
             closeClient(client);
         }
         clients.clear();
+    }
+
+    private void broadcastLobbyUpdate() {
+        List<LobbyPlayerInfo> info = new ArrayList<>();
+        for (ClientHandler client : clients.values()) {
+            String name = playerNames.getOrDefault(client.clientId, "Player" + client.clientId);
+            boolean isHost = (client.clientId == 1);
+            info.add(new LobbyPlayerInfo(client.clientId, name, isHost));
+        }
+
+        LobbyUpdate lobbyUpdate = new LobbyUpdate(info);
+        for (ClientHandler client : clients.values()) {
+            sendTo(client, lobbyUpdate);
+        }
     }
 }

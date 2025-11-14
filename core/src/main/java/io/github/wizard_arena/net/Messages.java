@@ -103,4 +103,27 @@ public class Messages {
             this.serverTime = serverTime;
         }
     }
+
+    // player lobby info
+    public static class LobbyPlayerInfo implements Serializable {
+        public int id;
+        public String name;
+        public boolean isHost;
+        public LobbyPlayerInfo() {}
+        public LobbyPlayerInfo(int id, String name, boolean isHost) {
+            this.id = id;
+            this.name = name;
+            this.isHost = isHost;
+        }
+    }
+
+    public static class LobbyUpdate implements Msg {
+        public List<LobbyPlayerInfo> players;
+
+        public LobbyUpdate() {}
+        public LobbyUpdate(List<LobbyPlayerInfo> players) {
+            this.players = players;
+        }
+
+    }
 }

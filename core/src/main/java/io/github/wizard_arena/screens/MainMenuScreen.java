@@ -1,5 +1,9 @@
 package io.github.wizard_arena.screens;
 
+import io.github.wizard_arena.net.NetConfig;
+import io.github.wizard_arena.net.Client;
+import io.github.wizard_arena.net.ListenServer;
+
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.Color;
@@ -56,7 +60,18 @@ public class MainMenuScreen extends ScreenAdapter {
         hostButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                game.setScreen(new PlayScreen(game, true, null)); // start as host for now
+                String playerName = System.getProperty("user.name", "Host");
+                ListenServer server = new ListenServer(NetConfig.TCP_PORT);
+                Client client = new Client();
+                try {
+                    server.start();
+                    client.connect("127.0.0.1", NetConfig.TCP_PORT, playerName);
+                    game.setScreen(new LobbyScreen(game, server, client, playerName));
+                    dispose();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    server.stop();
+                }
             }
         });
 
@@ -65,8 +80,10 @@ public class MainMenuScreen extends ScreenAdapter {
             public void clicked(InputEvent event, float x, float y) {
                 //TODO: prompt for IP
                 String ip = "127.0.0.1"; // placeholder IP for now
+                String playerName = System.getProperty("user.name", "Player");
                 Gdx.app.log("Button", "clicked");
-                game.setScreen(new PlayScreen(game, false, ip));
+                dispose();
+                game.setScreen(new PlayScreen(game, ip, playerName));
 
             }
             /*

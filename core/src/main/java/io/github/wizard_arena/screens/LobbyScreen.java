@@ -1,0 +1,225 @@
+package io.github.wizard_arena.screens;
+
+import io.github.wizard_arena.net.Messages;
+import io.github.wizard_arena.net.Client;
+import io.github.wizard_arena.net.ListenServer;
+
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.ScreenAdapter;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import io.github.wizard_arena.wizardGame;
+
+public class LobbyScreen extends ScreenAdapter {
+    private final wizardGame game;
+    private final ListenServer server;
+    private final Client client;
+    private final String playerName;
+
+    private Stage stage;
+    private ScreenViewport viewport;
+    private Skin skin;
+    private BitmapFont font;
+    private Texture whiteTex;
+
+    // list of players in the lobby
+    private List <String> playerList;
+
+    public LobbyScreen(wizardGame game, ListenServer server, Client client, String playerName) {
+        this.game = game;
+        this.server = server;
+        this.client = client;
+        this.playerName = playerName;
+    }
+
+    @Override
+    public void show() {
+        viewport = new ScreenViewport(new OrthographicCamera());
+        stage = new Stage(viewport);
+        font = new BitmapFont();
+        whiteTex = makeWhiteTexture();
+        skin = buildSkin(font, whiteTex);
+
+        Gdx.input.setInputProcessor(stage);
+
+        // layout
+        Table root = new Table();
+        root.setFillParent(true);
+        root.pad(20f);
+        stage.addActor(root);
+
+        // player list on left panel
+        Table leftPanel = new Table(skin);
+        leftPanel.defaults().pad(5f);
+        Label playersLabel = new Label("Players", skin);
+        playerList = new List<>(skin);
+        playerList.setItems(playerName + " (Host)"); // shows just host for now. No networking yet.
+        ScrollPane scrollPane = new ScrollPane(playerList, skin);
+        leftPanel.add(playersLabel).left().row();
+        leftPanel.add(scrollPane).grow().row();
+
+        // header and footer on right panel
+        Table rightPanel = new Table(skin);
+        rightPanel.defaults().pad(5f);
+
+        // top bar with exit button
+        TextButton exitButton = new TextButton("Exit", skin);
+        exitButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                if (client != null) {
+                    client.disconnect();
+                }
+                if (server != null) {
+                    server.stop();
+                }
+                dispose();
+                game.setScreen(new MainMenuScreen(game)); // return to main menu
+            }
+        });
+
+        Table topBar = new Table(skin);
+        topBar.add().expandX(); // spacer
+        topBar.add(exitButton).right();
+
+        // bottom bar with start button
+        TextButton startButton = new TextButton("Start Game", skin);
+        startButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                game.setScreen(new PlayScreen(game, server, client));
+                dispose();
+            }
+        });
+
+        Table bottomBar = new Table(skin);
+        bottomBar.add().expandX(); // spacer
+        bottomBar.add(startButton).right().padTop(10f);
+
+        // assemble right panel
+        rightPanel.top().right();
+        rightPanel.add(topBar).growX().top().row();
+        rightPanel.add().expand().row(); // spacer
+        rightPanel.add(bottomBar).growX().bottom().row();
+
+        // put panels in root table
+        root.add(leftPanel).width(300).growY().left();
+        root.add(rightPanel).grow();
+    }
+
+    @Override
+    public void render(float delta) {
+        Gdx.gl.glClearColor(0.05f, 0.05f, 0.08f, 1f); // dark background
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        // process network messages
+        for (Messages.Msg msg; (msg = client.pollMessage()) != null; ) {
+            if (msg instanceof Messages.LobbyUpdate){
+                Messages.LobbyUpdate lobbyUpdate = (Messages.LobbyUpdate) msg;
+
+                String[] names = new String[lobbyUpdate.players.size()];
+                for (int i = 0; i < lobbyUpdate.players.size(); i++) {
+                    Messages.LobbyPlayerInfo info = lobbyUpdate.players.get(i);
+                    names[i] = info.name + (info.isHost ? " (Host)" : "");
+                }
+                playerList.setItems(names);
+            }
+        }
+
+        stage.act(delta);
+        stage.draw();
+    }
+
+    @Override
+    public void resize(int width, int height) {
+        if(stage != null) {
+            stage.getViewport().update(width, height, true);
+        }
+    }
+
+    @Override
+    public void dispose() {
+        if (stage != null) stage.dispose();
+        if (skin != null) skin.dispose();
+        if (font != null) font.dispose();
+        if (whiteTex != null) whiteTex.dispose();
+    }
+
+    // helpers
+    private Texture makeWhiteTexture() {
+        Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        pixmap.setColor(Color.WHITE);
+        pixmap.fill();
+        Texture texture = new Texture(pixmap);
+        pixmap.dispose();
+        return texture;
+    }
+
+    private Skin buildSkin(BitmapFont font, Texture white) {
+        Skin skin = new Skin();
+
+        skin.add("font", font, BitmapFont.class);
+        skin.add("white", white, Texture.class);
+
+        // base drawables
+        Drawable bg = new TextureRegionDrawable(new TextureRegion(white)).tint(new Color(0f, 0f, 0f, 0f));
+        Drawable btnUp = new TextureRegionDrawable(new TextureRegion(white)).tint(new Color(0.15f, 0.15f, 0.15f, 1f));
+        Drawable btnDown = new TextureRegionDrawable(new TextureRegion(white)).tint(new Color(0.25f, 0.25f, 0.25f, 1f));
+        Drawable btnOver = new TextureRegionDrawable(new TextureRegion(white)).tint(new Color(0.2f, 0.2f, 0.2f, 1f));
+
+        // Create a LabelStyle
+        Label.LabelStyle labelStyle = new Label.LabelStyle();
+        labelStyle.font = font;
+        labelStyle.fontColor = Color.WHITE;
+        skin.add("default", labelStyle);
+
+        // Create a title LabelStyle
+        Label.LabelStyle titleStyle = new Label.LabelStyle();
+        BitmapFont titleFont = new BitmapFont();
+        titleFont.getData().setScale(2.2f);
+        titleStyle.font = titleFont;
+        titleStyle.fontColor = Color.WHITE;
+        skin.add("title", titleStyle);
+
+        // Create a TextButtonStyle
+        TextButton.TextButtonStyle textButtonStyle = new TextButton.TextButtonStyle();
+        textButtonStyle.up = btnUp;
+        textButtonStyle.down = btnDown;
+        textButtonStyle.over = btnOver;
+        textButtonStyle.font = font;
+        textButtonStyle.fontColor = Color.WHITE;
+        skin.add("default", textButtonStyle);
+
+        // list style
+        List.ListStyle listStyle = new List.ListStyle();
+        listStyle.font = font;
+        listStyle.fontColorSelected = Color.WHITE;
+        listStyle.fontColorUnselected = Color.LIGHT_GRAY;
+        listStyle.selection = new TextureRegionDrawable(new TextureRegion(white)).tint(new Color(0.3f, 0.3f, 0.5f, 1f));
+        skin.add("default", listStyle);
+
+        // scroll pane style
+        ScrollPane.ScrollPaneStyle scrollPaneStyle = new ScrollPane.ScrollPaneStyle();
+        scrollPaneStyle.background = null;
+        scrollPaneStyle.vScroll = null; // no scroll bar for now, may add later
+        scrollPaneStyle.vScrollKnob = null;
+        skin.add("default", scrollPaneStyle);
+
+        // default background
+        skin.add("default-bg", bg);
+
+        return skin;
+    }
+}

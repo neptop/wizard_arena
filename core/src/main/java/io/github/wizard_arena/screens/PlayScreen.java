@@ -15,17 +15,21 @@ public class PlayScreen extends ScreenAdapter {
     private ListenServer server;
     private Client client;
 
-    public PlayScreen(wizardGame game, boolean isHost, String hostIP) {
+    // host constructor
+    public PlayScreen(wizardGame game, ListenServer server, Client client) {
         this.game = game;
-        this.isHost = isHost;
+        this.isHost = true;
+        this.server = server;
+        this.client = client;
+    }
 
+    // client constructor
+    public PlayScreen(wizardGame game, String hostIP, String playerName) {
+        this.game = game;
+        this.isHost = false;
         try {
-            if (isHost){
-                server = new ListenServer(NetConfig.TCP_PORT);
-                server.start();
-            }
             client = new Client();
-            client.connect(isHost ? "127.0.0.1" : hostIP, NetConfig.TCP_PORT, System.getProperty("user.name", "Player"));
+            client.connect(hostIP, NetConfig.TCP_PORT, playerName);
         } catch (Exception e) {
             e.printStackTrace();
             Gdx.app.postRunnable(() -> game.setScreen(new MainMenuScreen(game)));
@@ -89,7 +93,7 @@ public class PlayScreen extends ScreenAdapter {
         if (client != null) {
             client.disconnect();
         }
-        if (server != null) {
+        if (isHost && server != null) {
             server.stop();
         }
     }
