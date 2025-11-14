@@ -226,4 +226,11 @@ public class ListenServer {
             sendTo(client, lobbyUpdate);
         }
     }
+
+    public void sendStartGame() {
+        StartGame startGame = new StartGame();
+        for (ClientHandler client : clients.values()) {
+            sendTo(client, startGame);
+        }
+    }
 }

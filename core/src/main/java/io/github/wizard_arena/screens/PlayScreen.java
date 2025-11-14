@@ -36,6 +36,14 @@ public class PlayScreen extends ScreenAdapter {
         }
     }
 
+    // already connected constructor
+    public PlayScreen(wizardGame game, Client client) {
+        this.game = game;
+        this.isHost = false;
+        this.client = client;
+        this.server = null;
+    }
+
     @Override
     public void show() {
         // do later

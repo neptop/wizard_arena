@@ -69,8 +69,7 @@ public class LobbyScreen extends ScreenAdapter {
 
         // player list
         playerList = new List<>(skin);
-        String initalName = playerName + (isHost ? " (Host)" : "");
-        playerList.setItems(initalName);
+        playerList.setItems(playerName + (isHost ? " (Host)" : ""));
 
         // put player list in scroll pane
         ScrollPane scrollPane = new ScrollPane(playerList, skin);
@@ -111,8 +110,10 @@ public class LobbyScreen extends ScreenAdapter {
             startButton.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
-                    game.setScreen(new PlayScreen(game, server, client));
                     dispose();
+                    if (server != null) {
+                        server.sendStartGame();
+                    }
                 }
             });
             bottomBar.add(startButton).right().padTop(10f);
@@ -149,6 +150,17 @@ public class LobbyScreen extends ScreenAdapter {
                     names[i] = info.name + (info.isHost ? " (Host)" : "");
                 }
                 playerList.setItems(names);
+            } else if (msg instanceof Messages.StartGame) {
+                // server indicates to start the game
+                final boolean hostFlag = isHost;
+                Gdx.app.postRunnable(() -> {
+                    if (hostFlag) {
+                        game.setScreen(new PlayScreen(game, server, client));
+                    } else {
+                        game.setScreen(new PlayScreen(game, client));
+                    }
+                });
+                return;
             }
         }
 

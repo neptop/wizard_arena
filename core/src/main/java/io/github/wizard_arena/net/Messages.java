@@ -124,6 +124,9 @@ public class Messages {
         public LobbyUpdate(List<LobbyPlayerInfo> players) {
             this.players = players;
         }
+    }
 
+    public static class StartGame implements Msg {
+        public StartGame() {}
     }
 }
