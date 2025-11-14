@@ -79,20 +79,62 @@ public class MainMenuScreen extends ScreenAdapter {
         joinButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                //TODO: prompt for IP
-                String ip = "127.0.0.1"; // placeholder IP for now
-                String playerName = System.getProperty("user.name", "Player");
-                Client client = new Client();
-                try {
-                    Gdx.app.log("Button", "clicked");
-                    client.connect(ip, NetConfig.TCP_PORT, playerName);
-                    game.setScreen(new LobbyScreen(game, null, client, playerName, false));
-                    dispose();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Gdx.app.log("Error", "Failed to connect to server at " + ip);
-                }
 
+               // dialog prompt for IP address
+               final Dialog dialog = new Dialog("Join Game", skin);
+               final TextField ipField = new TextField("", skin);
+               final Label errorLabel = new Label("", skin);
+
+               // build dialog table
+               Table content = dialog.getContentTable();
+               content.pad(10f);
+               content.add(new Label("Enter host IP:", skin)).left().row();
+               content.add(ipField).width(200f).padTop(5f).row();
+               content.add(errorLabel).left().padTop(5f).row();
+
+               // buttons
+               TextButton connectButton = new TextButton("Connect", skin);
+               TextButton cancelButton = new TextButton("Cancel", skin);
+
+               // add buttons to dialog button table
+               Table buttonTable = dialog.getButtonTable();
+               buttonTable.pad(10f);
+               buttonTable.add(connectButton).padRight(10f);
+               buttonTable.add(cancelButton);
+
+               // connect button listener
+               connectButton.addListener(new ClickListener() {
+                   @Override
+                   public void clicked(InputEvent event, float x, float y) {
+                       String ip = ipField.getText().trim();
+                       if (ip.isEmpty()) {
+                           ip = "127.0.0.1"; // default to localhost
+                       }
+
+                       String playerName = System.getProperty("user.name", "Player");
+                       Client client = new Client();
+                       try {
+                           Gdx.app.log("Button", "clicked");
+                           Gdx.app.log("Join", "Connecting to " + ip + ":" + NetConfig.TCP_PORT);
+                           client.connect(ip, NetConfig.TCP_PORT, playerName);
+                           game.setScreen(new LobbyScreen(game, null, client, playerName, false));
+                           dispose();
+                       } catch (Exception e) {
+                           e.printStackTrace();
+                           Gdx.app.log("Error", "Failed to connect to server at " + ip);
+                           errorLabel.setText("Connection failed. Please check the IP and try again.");
+                       }
+                   }
+               });
+               // cancel button listener
+               cancelButton.addListener(new ClickListener() {
+                   @Override
+                   public void clicked(InputEvent event, float x, float y) {
+                       dialog.hide();
+                   }
+               });
+               dialog.show(stage);
+               stage.setKeyboardFocus(ipField);
             }
         });
 
@@ -179,6 +221,22 @@ public class MainMenuScreen extends ScreenAdapter {
         textButtonStyle.font = font;
         textButtonStyle.fontColor = Color.WHITE;
         skin.add("default", textButtonStyle);
+
+        // Create a TextFieldStyle for ip input
+        TextField.TextFieldStyle tfStyle = new TextField.TextFieldStyle();
+        tfStyle.font = font;
+        tfStyle.fontColor = Color.WHITE;
+        tfStyle.cursor = new TextureRegionDrawable(new TextureRegion(white));
+        tfStyle.selection = new TextureRegionDrawable(new TextureRegion(white)).tint(new Color(0.3f, 0.3f, 0.5f, 1f));
+        tfStyle.background = new TextureRegionDrawable(new TextureRegion(white)).tint(new Color(0.1f, 0.1f, 0.1f, 1f));
+        skin.add("default", tfStyle);
+
+        // window style
+        Window.WindowStyle windowStyle = new Window.WindowStyle();
+        windowStyle.titleFont = font;
+        windowStyle.titleFontColor = Color.WHITE;
+        windowStyle.background = new TextureRegionDrawable(new TextureRegion(white)).tint(new Color(0.05f, 0.05f, 0.05f, 1f));
+        skin.add("default", windowStyle);
 
         // default background
         skin.add("default-bg", bg);
