@@ -119,10 +119,12 @@ public class Messages {
 
     public static class LobbyUpdate implements Msg {
         public List<LobbyPlayerInfo> players;
+        public String hostIP;
 
         public LobbyUpdate() {}
-        public LobbyUpdate(List<LobbyPlayerInfo> players) {
+        public LobbyUpdate(List<LobbyPlayerInfo> players, String hostIP) {
             this.players = players;
+            this.hostIP = hostIP;
         }
     }
 

@@ -20,6 +20,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import io.github.wizard_arena.net.NetConfig;
 import io.github.wizard_arena.wizardGame;
 
 public class LobbyScreen extends ScreenAdapter {
@@ -28,6 +29,7 @@ public class LobbyScreen extends ScreenAdapter {
     private final Client client;
     private final String playerName;
     private final boolean isHost;
+    private final String hostIP;
 
     private Stage stage;
     private ScreenViewport viewport;
@@ -38,12 +40,15 @@ public class LobbyScreen extends ScreenAdapter {
     // list of players in the lobby
     private List <String> playerList;
 
+    private Label ipLabel; // label to show lobby IP
+
     public LobbyScreen(wizardGame game, ListenServer server, Client client, String playerName, boolean isHost) {
         this.game = game;
         this.server = server;
         this.client = client;
         this.playerName = playerName;
         this.isHost = isHost;
+        this.hostIP = (server != null) ? server.getHostIP() : null;
     }
 
     @Override
@@ -75,6 +80,18 @@ public class LobbyScreen extends ScreenAdapter {
         ScrollPane scrollPane = new ScrollPane(playerList, skin);
         leftPanel.add(playersLabel).left().row();
         leftPanel.add(scrollPane).grow().row();
+
+        //show lobby IP
+        String initIPText;
+        if (hostIP != null) {
+            initIPText = "Lobby IP: " + hostIP + ":" + NetConfig.TCP_PORT;
+        } else {
+            initIPText = "Lobby IP: N/A";
+        }
+
+        ipLabel = new Label(initIPText, skin);
+        ipLabel.setColor(Color.LIGHT_GRAY);
+        leftPanel.add(ipLabel).left().padTop(10f).row();
 
         // header and footer on right panel
         Table rightPanel = new Table(skin);
@@ -158,6 +175,12 @@ public class LobbyScreen extends ScreenAdapter {
                     names[i] = info.name + (info.isHost ? " (Host)" : "");
                 }
                 playerList.setItems(names);
+
+                // update ip label for everyone
+                if (ipLabel != null && lobbyUpdate.hostIP != null) {
+                    ipLabel.setText("Lobby IP: " + lobbyUpdate.hostIP + ":" + NetConfig.TCP_PORT);
+                }
+
             } else if (msg instanceof Messages.StartGame) {
                 // server indicates to start the game
                 final boolean hostFlag = isHost;

@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.*;
 
 public class ListenServer {
     private final int port;
+    private final String hostIP;
     private volatile boolean running = false;
     private ServerSocket serverSocket;
     private Thread acceptThread; // Thread for accepting new client connections
@@ -39,6 +40,34 @@ public class ListenServer {
 
     public ListenServer(int port) {
         this.port = port;
+        this.hostIP = detectHostIP();
+    }
+
+    // helper method to cheese a LAN IP address
+    private String detectHostIP() {
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface iface = interfaces.nextElement();
+                if (iface.isLoopback() || !iface.isUp() || iface.isVirtual()) continue;
+
+                Enumeration<InetAddress> addresses = iface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+                    if (addr instanceof Inet4Address && addr.isSiteLocalAddress()){
+                        // example: 192.168.x.x or 10.x.x.x
+                        return addr.getHostAddress(); // return the first found LAN IPv4 address
+                    }
+                }
+            }
+        } catch (SocketException e) {
+            e.printStackTrace();
+        }
+        return "127.0.0.1"; // fallback to localhost
+    }
+
+    public String getHostIP() {
+        return hostIP;
     }
 
     public void start() throws IOException {
@@ -221,7 +250,7 @@ public class ListenServer {
             info.add(new LobbyPlayerInfo(client.clientId, name, isHost));
         }
 
-        LobbyUpdate lobbyUpdate = new LobbyUpdate(info);
+        LobbyUpdate lobbyUpdate = new LobbyUpdate(info, getHostIP());
         for (ClientHandler client : clients.values()) {
             sendTo(client, lobbyUpdate);
         }
