@@ -55,6 +55,9 @@ public class PlayScreen extends ScreenAdapter {
         if (client == null || !client.isConnected() || client.clientId < 0) {
             Gdx.gl.glClearColor(0, 0, 0, 1);
             Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+            // if disconnected i.e. server crashed or host closed server, return to main menu
+            Gdx.app.postRunnable(() -> game.setScreen(new MainMenuScreen(game)));
             return;
         }
 

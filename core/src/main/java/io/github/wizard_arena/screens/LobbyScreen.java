@@ -110,7 +110,6 @@ public class LobbyScreen extends ScreenAdapter {
             startButton.addListener(new ClickListener() {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
-                    dispose();
                     if (server != null) {
                         server.sendStartGame();
                     }
@@ -138,6 +137,15 @@ public class LobbyScreen extends ScreenAdapter {
     public void render(float delta) {
         Gdx.gl.glClearColor(0.05f, 0.05f, 0.08f, 1f); // dark background
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        // if connection lost, return to main menu
+        if (client == null || !client.isConnected() || client.clientId < 0) {
+            Gdx.app.postRunnable(() -> {
+                dispose();
+                game.setScreen(new MainMenuScreen(game));
+            });
+            return;
+        }
 
         // process network messages
         for (Messages.Msg msg; (msg = client.pollMessage()) != null; ) {
