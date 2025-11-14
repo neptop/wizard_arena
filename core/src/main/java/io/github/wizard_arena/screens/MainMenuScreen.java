@@ -64,9 +64,10 @@ public class MainMenuScreen extends ScreenAdapter {
                 ListenServer server = new ListenServer(NetConfig.TCP_PORT);
                 Client client = new Client();
                 try {
+                    Gdx.app.log("Button", "clicked");
                     server.start();
                     client.connect("127.0.0.1", NetConfig.TCP_PORT, playerName);
-                    game.setScreen(new LobbyScreen(game, server, client, playerName));
+                    game.setScreen(new LobbyScreen(game, server, client, playerName, true));
                     dispose();
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -81,19 +82,18 @@ public class MainMenuScreen extends ScreenAdapter {
                 //TODO: prompt for IP
                 String ip = "127.0.0.1"; // placeholder IP for now
                 String playerName = System.getProperty("user.name", "Player");
-                Gdx.app.log("Button", "clicked");
-                dispose();
-                game.setScreen(new PlayScreen(game, ip, playerName));
+                Client client = new Client();
+                try {
+                    Gdx.app.log("Button", "clicked");
+                    client.connect(ip, NetConfig.TCP_PORT, playerName);
+                    game.setScreen(new LobbyScreen(game, null, client, playerName, false));
+                    dispose();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Gdx.app.log("Error", "Failed to connect to server at " + ip);
+                }
 
             }
-            /*
-            if (!joinButton.isPressed()) return false;
-            //TODO: prompt for IP
-            String ip = "127.0.0.1"; // placeholder IP for now
-            game.setScreen(new PlayScreen(game, false, ip));
-            return true;
-
-             */
         });
 
         exitButton.addListener(e -> {

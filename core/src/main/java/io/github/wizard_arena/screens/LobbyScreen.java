@@ -24,9 +24,10 @@ import io.github.wizard_arena.wizardGame;
 
 public class LobbyScreen extends ScreenAdapter {
     private final wizardGame game;
-    private final ListenServer server;
+    private final ListenServer server; // should be null for clients
     private final Client client;
     private final String playerName;
+    private final boolean isHost;
 
     private Stage stage;
     private ScreenViewport viewport;
@@ -37,11 +38,12 @@ public class LobbyScreen extends ScreenAdapter {
     // list of players in the lobby
     private List <String> playerList;
 
-    public LobbyScreen(wizardGame game, ListenServer server, Client client, String playerName) {
+    public LobbyScreen(wizardGame game, ListenServer server, Client client, String playerName, boolean isHost) {
         this.game = game;
         this.server = server;
         this.client = client;
         this.playerName = playerName;
+        this.isHost = isHost;
     }
 
     @Override
@@ -64,8 +66,13 @@ public class LobbyScreen extends ScreenAdapter {
         Table leftPanel = new Table(skin);
         leftPanel.defaults().pad(5f);
         Label playersLabel = new Label("Players", skin);
+
+        // player list
         playerList = new List<>(skin);
-        playerList.setItems(playerName + " (Host)"); // shows just host for now. No networking yet.
+        String initalName = playerName + (isHost ? " (Host)" : "");
+        playerList.setItems(initalName);
+
+        // put player list in scroll pane
         ScrollPane scrollPane = new ScrollPane(playerList, skin);
         leftPanel.add(playersLabel).left().row();
         leftPanel.add(scrollPane).grow().row();
@@ -75,14 +82,14 @@ public class LobbyScreen extends ScreenAdapter {
         rightPanel.defaults().pad(5f);
 
         // top bar with exit button
-        TextButton exitButton = new TextButton("Exit", skin);
+        TextButton exitButton = new TextButton(isHost ? "Close Lobby" : "Leave Lobby", skin);
         exitButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 if (client != null) {
                     client.disconnect();
                 }
-                if (server != null) {
+                if (isHost && server != null) {
                     server.stop();
                 }
                 dispose();
@@ -94,19 +101,26 @@ public class LobbyScreen extends ScreenAdapter {
         topBar.add().expandX(); // spacer
         topBar.add(exitButton).right();
 
-        // bottom bar with start button
-        TextButton startButton = new TextButton("Start Game", skin);
-        startButton.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                game.setScreen(new PlayScreen(game, server, client));
-                dispose();
-            }
-        });
-
+        // bottom bar
         Table bottomBar = new Table(skin);
         bottomBar.add().expandX(); // spacer
-        bottomBar.add(startButton).right().padTop(10f);
+
+        // start game button (only for host)
+        if (isHost) {
+            TextButton startButton = new TextButton("Start Game", skin);
+            startButton.addListener(new ClickListener() {
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    game.setScreen(new PlayScreen(game, server, client));
+                    dispose();
+                }
+            });
+            bottomBar.add(startButton).right().padTop(10f);
+        } else {
+            // clients see waiting message
+            Label waitLabel = new Label("Waiting for host to start...", skin);
+            bottomBar.add(waitLabel).right().padTop(10f);
+        }
 
         // assemble right panel
         rightPanel.top().right();
