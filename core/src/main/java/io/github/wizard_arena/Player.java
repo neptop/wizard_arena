@@ -32,7 +32,7 @@ public class Player extends Sprite {
         stateTime = 0f;
     }
 
-    public boolean movement(float delta) {
+    public boolean movement() {
 
         int dX = 0;
         int dY = 0;
@@ -83,7 +83,7 @@ public class Player extends Sprite {
 
         float time = Gdx.graphics.getDeltaTime();
 
-        boolean blink = movement(time);
+        boolean blink = movement();
 
         if(!blink) {
             setX(getX() + time * xVelocity);
