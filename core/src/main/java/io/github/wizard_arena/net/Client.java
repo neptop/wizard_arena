@@ -100,6 +100,6 @@ public class Client {
     }
 
     public boolean isConnected() {
-        return running && socket != null && !socket.isClosed();
+        return !running || socket == null || socket.isClosed();
     }
 }

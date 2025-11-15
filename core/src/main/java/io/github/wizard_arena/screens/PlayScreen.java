@@ -3,7 +3,6 @@ package io.github.wizard_arena.screens;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.Input;
 import io.github.wizard_arena.Player;
 import io.github.wizard_arena.net.*;
 import io.github.wizard_arena.wizardGame;
@@ -60,7 +59,7 @@ public class PlayScreen extends ScreenAdapter {
     @Override
     public void render(float delta) {
         // check connection status before anything
-        if (client == null || !client.isConnected() || client.clientId < 0) {
+        if (client == null || client.isConnected() || client.clientId < 0) {
             Gdx.gl.glClearColor(0, 0, 0, 1);
             Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
