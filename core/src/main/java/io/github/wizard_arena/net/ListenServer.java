@@ -8,6 +8,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 
 public class ListenServer {
+    private static final int MAX_CLIENTS = 4;
     private final int port;
     private final String hostIP;
     private volatile boolean running = false;
@@ -15,7 +16,6 @@ public class ListenServer {
     private Thread acceptThread; // Thread for accepting new client connections
     private Thread tickThread;
     private final Map<Integer, ClientHandler> clients = new ConcurrentHashMap<>();
-    private final AtomicInteger clientIdCounter = new AtomicInteger(1);
     private final long serverStartTime = System.nanoTime();
     private final Map<Integer, String> playerNames = new ConcurrentHashMap<>();
 
@@ -102,7 +102,25 @@ public class ListenServer {
                 }
 
                 JoinRequest joinRequest = (JoinRequest) firstMsg;
-                int clientId = clientIdCounter.getAndIncrement();
+
+                // check lobby size before assigning ID
+                if (clients.size() >= MAX_CLIENTS) {
+                    // send rejection
+                    out.writeObject(new JoinResponse(false, "Server full", -1, serverStartTime));
+                    out.flush();
+                    clientSocket.close();
+                    continue;
+                }
+
+                // assign client ID
+                int clientId = assignClientId();
+                if (clientId == -1) {
+                    // additional safety check just in case
+                    out.writeObject(new JoinResponse(false, "Server full", -1, serverStartTime));
+                    out.flush();
+                    clientSocket.close();
+                    continue;
+                }
 
                 String playerName = (joinRequest.playerName != null && !joinRequest.playerName.isEmpty())
                         ? joinRequest.playerName : "Player" + clientId;
@@ -261,5 +279,14 @@ public class ListenServer {
         for (ClientHandler client : clients.values()) {
             sendTo(client, startGame);
         }
+    }
+
+    private int assignClientId() {
+        for (int i = 1; i <= MAX_CLIENTS; i++) {
+            if (!clients.containsKey(i)) {
+                return i;
+            }
+        }
+        return -1; // full
     }
 }
