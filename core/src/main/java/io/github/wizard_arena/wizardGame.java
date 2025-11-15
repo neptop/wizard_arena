@@ -20,7 +20,7 @@ public class wizardGame extends Game {
         String RSC_RED_WIZARD_IMG = "red_wizard.png";
 
         assets.load(RSC_RED_WIZARD_IMG, Texture.class);
-
+        assets.finishLoading();
 
         setScreen(new MainMenuScreen(this));
 
