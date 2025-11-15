@@ -23,7 +23,7 @@ public class PlayScreen extends ScreenAdapter {
         this.isHost = true;
         this.server = server;
         this.client = client;
-        player = new Player(game, 100f);
+        player = new Player(game, 150f);
         hudOpen = false;
     }
 
