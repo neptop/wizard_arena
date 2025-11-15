@@ -4,6 +4,7 @@ import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.Input;
+import io.github.wizard_arena.Player;
 import io.github.wizard_arena.net.*;
 import io.github.wizard_arena.wizardGame;
 
@@ -14,13 +15,16 @@ public class PlayScreen extends ScreenAdapter {
     private final boolean isHost;
     private ListenServer server;
     private Client client;
-
+    private Player player;
+    private boolean hudOpen;
     // host constructor
     public PlayScreen(wizardGame game, ListenServer server, Client client) {
         this.game = game;
         this.isHost = true;
         this.server = server;
         this.client = client;
+        player = new Player(game, 100f);
+        hudOpen = false;
     }
 
     // client constructor
@@ -92,6 +96,7 @@ public class PlayScreen extends ScreenAdapter {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         // TODO: draw players and projectiles
+        player.update(hudOpen);
     }
 
     @Override
