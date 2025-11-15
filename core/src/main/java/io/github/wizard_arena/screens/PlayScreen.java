@@ -23,8 +23,9 @@ public class PlayScreen extends ScreenAdapter {
         this.isHost = true;
         this.server = server;
         this.client = client;
-        player = new Player(game, 150f);
+
         hudOpen = false;
+        player = new Player(game, 150f, client);
     }
 
     // client constructor
@@ -38,6 +39,7 @@ public class PlayScreen extends ScreenAdapter {
             e.printStackTrace();
             Gdx.app.postRunnable(() -> game.setScreen(new MainMenuScreen(game)));
         }
+        player = new Player(game, 150f, client);
     }
 
     // already connected constructor
@@ -46,6 +48,8 @@ public class PlayScreen extends ScreenAdapter {
         this.isHost = false;
         this.client = client;
         this.server = null;
+
+        player = new Player(game, 150f, client);
     }
 
     @Override
@@ -70,6 +74,7 @@ public class PlayScreen extends ScreenAdapter {
         // process incoming messages
         for (Msg m; (m = client.pollMessage()) != null; ) {
             if (m instanceof Snapshot) {
+
                 // TODO: update local render states from snapshot
                 // copy snap players and projectiles to the map
             }
