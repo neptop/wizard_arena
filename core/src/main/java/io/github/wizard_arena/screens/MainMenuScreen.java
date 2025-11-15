@@ -30,6 +30,8 @@ public class MainMenuScreen extends ScreenAdapter {
     private BitmapFont font;
     private Texture whiteTex;
 
+    private String displayName = ""; // if empty then server uses Player1, Player2, etc.
+
     public MainMenuScreen(wizardGame game) {
         this.game = game;
     }
@@ -42,10 +44,65 @@ public class MainMenuScreen extends ScreenAdapter {
         whiteTex = makeWhiteTexture();
         skin = buildSkin(font, whiteTex);
 
-        // layout
+        // root layout
         Table root = new Table();
         root.setFillParent(true);
+        root.center();
         stage.addActor(root);
+
+        // top bar at top right with display name
+        final TextButton nameButton = new TextButton(getDisplayName(), skin);
+        nameButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                final Dialog dialog = new Dialog("Set Display Name", skin);
+                final TextField nameField = new TextField(displayName, skin);
+
+                // build dialog table
+                Table content = dialog.getContentTable();
+                content.pad(10f);
+                content.add(new Label("Display Name:", skin)).left().row();
+                content.add(nameField).width(200f).padTop(5f).row();
+
+                // buttons
+                TextButton okButton = new TextButton("OK", skin);
+                TextButton cancelButton = new TextButton("Cancel", skin);
+
+                // add buttons to dialog button table
+                Table buttonTable = dialog.getButtonTable();
+                buttonTable.pad(10f);
+                buttonTable.add(okButton).padRight(10f);
+                buttonTable.add(cancelButton);
+
+                // ok button listener
+                okButton.addListener(new ClickListener() {
+                    @Override
+                    public void clicked(InputEvent event, float x, float y) {
+                        displayName = nameField.getText().trim();
+                        nameButton.setText(getDisplayName());
+                        dialog.hide();
+                    }
+                });
+                // cancel button listener
+                cancelButton.addListener(new ClickListener() {
+                    @Override
+                    public void clicked(InputEvent event, float x, float y) {
+                        dialog.hide();
+                    }
+                });
+
+                dialog.show(stage);
+                stage.setKeyboardFocus(nameField);
+            }
+        });
+
+        // top bar table
+        Table topBar = new Table();
+        topBar.setFillParent(true);
+        topBar.top().right();
+        topBar.pad(10f);
+        topBar.add(nameButton);
+        stage.addActor(topBar);
 
         // title
         Label titleLabel = new Label("Wizard Arena", skin, "title");
@@ -56,11 +113,11 @@ public class MainMenuScreen extends ScreenAdapter {
         TextButton joinButton = new TextButton("Join", skin);
         TextButton exitButton = new TextButton("Exit", skin);
 
-        // add listeners
+        // host button listener
         hostButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                String playerName = System.getProperty("user.name", "Host");
+                String playerName = (displayName == null) ? "" : displayName.trim();
                 ListenServer server = new ListenServer(NetConfig.TCP_PORT);
                 Client client = new Client();
                 try {
@@ -76,6 +133,7 @@ public class MainMenuScreen extends ScreenAdapter {
             }
         });
 
+        // join button listener
         joinButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
@@ -111,7 +169,7 @@ public class MainMenuScreen extends ScreenAdapter {
                            ip = "127.0.0.1"; // default to localhost
                        }
 
-                       String playerName = System.getProperty("user.name", "Player");
+                       String playerName = (displayName == null) ? "" : displayName.trim();
                        Client client = new Client();
                        try {
                            Gdx.app.log("Button", "clicked");
@@ -177,7 +235,15 @@ public class MainMenuScreen extends ScreenAdapter {
         if (skin != null) skin.dispose();
     }
 
-    // helpers
+    // helpers ------------------------------------------------------------
+
+    private String getDisplayName() {
+        if (displayName == null || displayName.trim().isEmpty()) {
+            return "Set Name";
+        }
+        return displayName;
+    }
+
     private Texture makeWhiteTexture() {
         Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.WHITE);
