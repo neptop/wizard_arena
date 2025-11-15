@@ -65,6 +65,7 @@ public class PlayScreen extends ScreenAdapter {
             return;
         }
 
+        player.update(hudOpen);
 
         // send input
         InputUpdate input = new InputUpdate();
@@ -96,7 +97,9 @@ public class PlayScreen extends ScreenAdapter {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         // TODO: draw players and projectiles
-        player.update(hudOpen);
+        game.batch.begin();
+        player.draw(game.batch);
+        game.batch.end();
     }
 
     @Override
