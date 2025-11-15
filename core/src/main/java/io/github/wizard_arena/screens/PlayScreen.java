@@ -67,24 +67,6 @@ public class PlayScreen extends ScreenAdapter {
 
         player.update(hudOpen);
 
-        // send input
-        InputUpdate input = new InputUpdate();
-        input.clientId = client.clientId;
-        input.dt = delta;
-        input.seq = (int)(System.nanoTime() & 0x7FFFFFFF); // sequence number based on time
-        input.moveX = (Gdx.input.isKeyPressed(Input.Keys.D) ? 1 : 0) - (Gdx.input.isKeyPressed(Input.Keys.A) ? 1 : 0);
-        input.moveY = (Gdx.input.isKeyPressed(Input.Keys.W) ? 1 : 0) - (Gdx.input.isKeyPressed(Input.Keys.S) ? 1 : 0);
-        input.castSpell = Gdx.input.isButtonPressed(Input.Buttons.LEFT);
-        input.dash = Gdx.input.isKeyPressed(Input.Keys.SPACE);
-
-        // TODO: aiming direction towards mouse
-
-        try {
-            client.send(input);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
         // process incoming messages
         for (Msg m; (m = client.pollMessage()) != null; ) {
             if (m instanceof Snapshot) {

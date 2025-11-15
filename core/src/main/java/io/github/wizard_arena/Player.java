@@ -22,6 +22,8 @@ public class Player extends Sprite {
     //  general timer
     private float stateTime;
 
+    //  online stuff
+
 
     public Player(wizardGame game, float speed) {
         super(game.assets.get("red_wizard.png", Texture.class));
@@ -35,7 +37,7 @@ public class Player extends Sprite {
         int dX = 0;
         int dY = 0;
 
-        float blinkDistance = 50f;
+        float blinkDistance = 100f;
         boolean blinked = blink();
 
         if(Gdx.input.isKeyPressed(Input.Keys.W)) {
@@ -72,7 +74,7 @@ public class Player extends Sprite {
         if(blinkTimer <= 0 && !blinked && Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)) {
             blinked = true;
             stateTime = 0f;
-            blinkTimer = 1f;
+            blinkTimer = 2f;
         }
         return blinked;
     }
@@ -87,6 +89,5 @@ public class Player extends Sprite {
             setX(getX() + time * xVelocity);
             setY(getY() + time * yVelocity);
         }
-
     }
 }
