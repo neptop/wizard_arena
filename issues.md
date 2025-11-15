@@ -13,10 +13,9 @@
 - Issue 10: Basic UI & HUD
 - Issue 11: Game loop with rounds and winner declaration
 - Issue 12: Power ups
-- Issue 13: Main Menu and Lobby
-- Issue 14: Art assets for players, spells, arena, and UI elements
-- Issue 15: Add obstacles in the arena
-- Issue 16: Add lava barrier + shrinking logic
-- Issue 17: Polish player movement + add dashing ability
-- Issue 18: Additional Spells
-- Issue 19: Advanced spell interactions
+- Issue 13: Art assets for players, spells, arena, and UI elements
+- Issue 14: Add obstacles in the arena
+- Issue 15: Add lava barrier + shrinking logic
+- Issue 16: Polish player movement + add dashing ability
+- Issue 17: Additional Spells
+- Issue 18: Advanced spell interactions
