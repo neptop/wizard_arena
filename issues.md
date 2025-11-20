@@ -1,9 +1,10 @@
 ** Resolved Issues **
 - Issue 1: Networking listen server
-
-** Open Issues **
 - Issue 2: Implement player movement
 - Issue 3: Create basic arena
+
+** Open Issues **
+
 - Issue 4: Synchronize player state in real time
 - Issue 5: Player health and damage system
 - Issue 6: Player death and respawn
