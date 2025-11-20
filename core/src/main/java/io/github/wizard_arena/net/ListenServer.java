@@ -43,7 +43,7 @@ public class ListenServer {
         this.hostIP = detectHostIP();
     }
 
-    // helper method to cheese a LAN IP address
+    // helper method to choose a LAN IP address
     private String detectHostIP() {
         try {
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
@@ -126,7 +126,9 @@ public class ListenServer {
                         ? joinRequest.playerName : "Player" + clientId;
 
                 playerNames.put(clientId, playerName);
-                players.put(clientId, new PlayerState(clientId, 100 + clientId * 20, 100, 100f)); // spawn player at position
+                PlayerState ps = new PlayerState(clientId, 100 + clientId * 20, 100, 100f); // spawn player at position
+                ps.lastProcessedInput = 0;
+                players.put(clientId, ps); // add to player states
 
                 // send JoinResponse
                 out.writeObject(new JoinResponse(true, null, clientId, serverStartTime));
@@ -139,12 +141,19 @@ public class ListenServer {
                             Object obj = c.in.readObject();
                             if (obj instanceof InputUpdate) {
                                 InputUpdate iu = (InputUpdate) obj;
+
+                                // debug logging
+                                //System.out.println("client input " + clientId + " move=(" + iu.moveX + "," + iu.moveY + ") dt=" + iu.dt);
+
                                 PlayerState p = players.get(clientId);
                                 if (p != null) {
-                                    // TEMP: simple movement update
-                                    float speed = 200f / NetConfig.TICK_RATE;
-                                    p.x += iu.moveX * speed;
-                                    p.y += iu.moveY * speed;
+                                    float speed = 300f;
+                                    float dt = iu.dt;
+
+                                    p.x += iu.moveX * speed * dt;
+                                    p.y += iu.moveY * speed * dt;
+
+                                    p.lastProcessedInput = iu.seq; // update last processed input seq
                                 }
                             } else if (obj instanceof Ping) {
                                 Ping ping = (Ping) obj;
@@ -162,7 +171,7 @@ public class ListenServer {
                         playerNames.remove(clientId);
                         broadcastLobbyUpdate(); // notify all clients of updated lobby state
                     }
-                }, "Client-RX-" + clientId);
+                }, "Client-RX-" + clientId); // receive thread
 
                 ClientHandler clientHandler = new ClientHandler(clientId, clientSocket, out, in, rx);
                 clients.put(clientId, clientHandler);
@@ -229,10 +238,16 @@ public class ListenServer {
         for (ClientHandler client : clients.values()) {
             sendTo(client, snapshot);
         }
+
+        // debug logging
+        /*for (PlayerState ps : playerStates){
+            System.out.println("snapshot player " + ps.id + " pos=(" + ps.x + "," + ps.y + ")");
+        } */
     }
 
     private void sendTo(ClientHandler client, Messages.Msg msg) {
         try {
+            client.out.reset();
             client.out.writeObject(msg);
             client.out.flush();
         } catch (IOException e) {

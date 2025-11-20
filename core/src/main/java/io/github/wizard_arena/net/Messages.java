@@ -58,12 +58,13 @@ public class Messages {
         public float x;
         public float y;
         public float hp;
-        public PlayerState() {}
+        public int lastProcessedInput; // last input seq processed by server
         public PlayerState(int id, float x, float y, float hp) {
             this.id = id;
             this.x = x;
             this.y = y;
             this.hp = hp;
+            this.lastProcessedInput = 0;
         }
     }
 

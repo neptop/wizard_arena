@@ -7,8 +7,11 @@ import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import io.github.wizard_arena.net.Client;
 import io.github.wizard_arena.net.Messages;
+import io.github.wizard_arena.net.NetConfig;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Player extends Sprite {
 
@@ -30,6 +33,18 @@ public class Player extends Sprite {
     public Messages.InputUpdate inputUpdate;
     public Client client;
 
+    // client-side prediction
+    private int nextInputSeq = 1;
+    private final List<Messages.InputUpdate> pendingInputs = new ArrayList<>();
+
+    // remote player interpolation
+    private float interpStartX;
+    private float interpStartY;
+    private float interpTargetX;
+    private float interpTargetY;
+    private float interpT = 1f; // interpolation factor, 1 = at target
+
+
     public Player(wizardGame game, float speed, Client client, int spawnX, int spawnY) {
         super(game.assets.get("red_wizard.png", Texture.class));
         this.speed = speed;
@@ -39,19 +54,6 @@ public class Player extends Sprite {
 
         setX(spawnX * 64);
         setY(spawnY * 64);
-        this.inputUpdate = new Messages.InputUpdate();
-
-        inputUpdate.moveX = getX();
-        inputUpdate.moveY = getY();
-        inputUpdate.clientId = client.clientId;
-        inputUpdate.seq = 0; // input sequence number
-        inputUpdate.dt = 0; // delta time since last input
-
-
-        inputUpdate.aimX = 0f; // aiming direction
-        inputUpdate.aimY = 0f;
-        inputUpdate.castSpell = false; // spell casting input
-        inputUpdate.dash = false;
     }
 
     public boolean movement() {
@@ -75,12 +77,14 @@ public class Player extends Sprite {
             dX = 1;
         }
 
+        xVelocity = dX;
+        yVelocity = dY;
 
-        xVelocity = dX * speed;
-        yVelocity = dY * speed;
+        // debugging output
+        /*if (dX != 0 || dY != 0) {
+            System.out.println("local input: (" + dX + ", " + dY + ")");
+        } */
 
-        inputUpdate.moveX = xVelocity;
-        inputUpdate.moveY = yVelocity;
         if(blinked) {
             setX(getX() + dX * blinkDistance );
             setY(getY() + dY * blinkDistance );
@@ -110,15 +114,89 @@ public class Player extends Sprite {
         float time = Gdx.graphics.getDeltaTime();
 
         boolean blink = movement();
-        try {
-            client.send(inputUpdate);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
 
-        if(!blink) {
-            setX(getX() + time * xVelocity);
-            setY(getY() + time * yVelocity);
+        // local movement update
+        setX(getX() + xVelocity * speed * time);
+        setY(getY() + yVelocity * speed * time);
+
+        // send input to server
+        if (client != null) {
+            Messages.InputUpdate iu = new Messages.InputUpdate();
+            iu.dt = time;
+            iu.moveX = xVelocity;
+            iu.moveY = yVelocity;
+            iu.clientId = (client != null ? client.clientId : -1);
+            iu.seq = nextInputSeq++;
+            iu.dt = time; // delta time since last input
+
+
+            iu.aimX = 0f; // aiming direction
+            iu.aimY = 0f;
+            iu.castSpell = false; // spell casting input
+            iu.dash = false;
+
+            pendingInputs.add(iu); // store input for client-side prediction
+
+            try {
+                client.send(iu);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
+
+    // this is called when a new server snapshot is received
+    public void applyServerState(float serverX, float serverY, int lastProcessedInput) {
+        // correct position based on server state
+        setX(serverX);
+        setY(serverY);
+
+        // reapply pending inputs that the server hasn't processed yet
+        int i = 0;
+        while (i < pendingInputs.size()) {
+            Messages.InputUpdate input = pendingInputs.get(i);
+            if (input.seq <= lastProcessedInput) {
+                // this input has already been processed by the server
+                pendingInputs.remove(i);
+            } else {
+                // reapply this input
+                setX(getX() + input.moveX * speed * input.dt);
+                setY(getY() + input.moveY * speed * input.dt);
+                i++;
+            }
+        }
+    }
+
+    // check if this player is local (controlled by this client)
+    public boolean isLocal() {
+        return client != null;
+    }
+
+    // called when receiving a snapshot for remote players
+    public void startInter(float serverX, float serverY) {
+        interpStartX = getX();
+        interpStartY = getY();
+        interpTargetX = serverX;
+        interpTargetY = serverY;
+        interpT = 0f;
+    }
+
+    // called each frame to update interpolation for remote players
+    public void updateRemote(float dt) {
+        if (interpT >= 1f) {
+            return; // already at target
+        }
+
+        float interpSpeed = NetConfig.SNAPSHOT_RATE;
+        interpT += dt * interpSpeed;
+        if (interpT > 1f) {
+            interpT = 1f;
+        }
+
+        float newX = interpStartX + (interpTargetX - interpStartX) * interpT;
+        float newY = interpStartY + (interpTargetY - interpStartY) * interpT;
+        setX(newX);
+        setY(newY);
+    }
+
 }

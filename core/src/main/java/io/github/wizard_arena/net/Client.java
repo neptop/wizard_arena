@@ -84,6 +84,7 @@ public class Client {
 
     public void send(Msg msg) throws IOException {
         if (!running) return;
+        out.reset();
         out.writeObject(msg);
         out.flush();
     }
@@ -100,6 +101,6 @@ public class Client {
     }
 
     public boolean isConnected() {
-        return !running || socket == null || socket.isClosed();
+        return running && socket != null && !socket.isClosed();
     }
 }

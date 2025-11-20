@@ -184,7 +184,7 @@ public class LobbyScreen extends ScreenAdapter {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         // if connection lost, return to main menu
-        if (client == null || client.isConnected() || client.clientId < 0) {
+        if (client == null || !client.isConnected() || client.clientId < 0) {
             Gdx.app.postRunnable(() -> {
                 dispose();
                 game.setScreen(new MainMenuScreen(game));

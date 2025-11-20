@@ -2,10 +2,9 @@
 - Issue 1: Networking listen server
 - Issue 2: Implement player movement
 - Issue 3: Create basic arena
+- Issue 4: Synchronize player state in real time
 
 ** Open Issues **
-
-- Issue 4: Synchronize player state in real time
 - Issue 5: Player health and damage system
 - Issue 6: Player death and respawn
 - Issue 7: Basic spell casting

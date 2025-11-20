@@ -15,6 +15,10 @@ import io.github.wizard_arena.wizardGame;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 import static io.github.wizard_arena.net.Messages.*;
 
@@ -25,6 +29,7 @@ public class PlayScreen extends ScreenAdapter {
     private Client client;
     private Player player;
     private boolean hudOpen;
+    private Map<Integer, Player> playerSprites = new HashMap<>(); // clientId to Player sprite
 
 
     // map stuff
@@ -123,6 +128,9 @@ public class PlayScreen extends ScreenAdapter {
         }
 
         player = new Player(game, 300f, client, playerSpawnX, playerSpawnY);
+        if (client != null) {
+            playerSprites.put(client.clientId, player);
+        }
     }
 
     @Override
@@ -133,7 +141,7 @@ public class PlayScreen extends ScreenAdapter {
     @Override
     public void render(float delta) {
         // check connection status before anything
-        if (client == null || client.isConnected() || client.clientId < 0) {
+        if (client == null || !client.isConnected() || client.clientId < 0) {
             Gdx.gl.glClearColor(0, 0, 0, 1);
             Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
@@ -142,19 +150,54 @@ public class PlayScreen extends ScreenAdapter {
             return;
         }
 
-        updateCamera();
-        game.batch.setProjectionMatrix(camera.combined);
-
-        player.update(hudOpen);
-
         // process incoming messages
         for (Msg m; (m = client.pollMessage()) != null; ) {
             if (m instanceof Snapshot) {
+                Snapshot s = (Snapshot) m;
+                Set<Integer> updatedPlayerIds = new HashSet<>();
 
-                // TODO: update local render states from snapshot
-                // copy snap players and projectiles to the map
+                for (PlayerState ps : s.players) {
+                    updatedPlayerIds.add(ps.id);
+                    Player p = playerSprites.get(ps.id);
+                    if (p == null) {
+                        // create new player sprite
+                        if (ps.id == client.clientId) {
+                            p = player; // use local player instance
+                        } else {
+                            // remote player
+                            p = new Player(game, 300f, null, playerSpawnX, playerSpawnY);
+                        }
+                        playerSprites.put(ps.id, p);
+                    }
+
+                    if (ps.id == client.clientId) {
+                        // this is the local player, so apply server reconciliation
+                        p.applyServerState(ps.x, ps.y, ps.lastProcessedInput);
+                    } else {
+                        // remote player, directly set position
+                        p.startInter(ps.x, ps.y);
+                    }
+
+                    // debug: check what client thinks is applying the snapshot
+                    //System.out.println("applied snapshot: id=" + ps.id + " pos=(" + ps.x + ", " + ps.y + ") hp=" + ps.hp);
+
+                }
+                // remove players that aren't in the snapshot i.e. disconnected
+                playerSprites.entrySet().removeIf(e -> !updatedPlayerIds.contains(e.getKey()));
             }
         }
+
+        player.update(hudOpen);
+
+        // update interpolation for remote players
+        for (Player p : playerSprites.values()) {
+            if (p != player) {
+                p.updateRemote(delta);
+            }
+        }
+
+        updateCamera();
+        game.batch.setProjectionMatrix(camera.combined);
 
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
@@ -167,7 +210,9 @@ public class PlayScreen extends ScreenAdapter {
                 tiles[i][j].render(game.batch);
             }
         }
-        player.draw(game.batch);
+        for (Player p : playerSprites.values()) {
+            p.draw(game.batch);
+        }
 
         game.batch.end();
     }
@@ -191,6 +236,9 @@ public class PlayScreen extends ScreenAdapter {
 
         float pX = player.getX();
         float pY = player.getY();
+
+        // temp debug
+        //System.out.println("client, cam tracking player at: (" + pX + ", " + pY + ")");
 
         float world_height = map_height * 64;
         float world_width = map_width * 64;
