@@ -18,8 +18,10 @@ public class wizardGame extends Game {
         batch = new SpriteBatch();
 
         String RSC_RED_WIZARD_IMG = "red_wizard.png";
+        String RSC_FLOOR_TILE_IMG = "floor_tile.png";
 
         assets.load(RSC_RED_WIZARD_IMG, Texture.class);
+        assets.load(RSC_FLOOR_TILE_IMG, Texture.class);
         assets.finishLoading();
 
         setScreen(new MainMenuScreen(this));

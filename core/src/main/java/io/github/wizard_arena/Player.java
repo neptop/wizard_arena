@@ -21,7 +21,7 @@ public class Player extends Sprite {
     //  Blink Stuff
 
     private float blinkTimer;
-    private boolean blinked;
+    public boolean blinked;
 
     //  general timer
     private float stateTime;
@@ -30,13 +30,15 @@ public class Player extends Sprite {
     public Messages.InputUpdate inputUpdate;
     public Client client;
 
-    public Player(wizardGame game, float speed, Client client) {
+    public Player(wizardGame game, float speed, Client client, int spawnX, int spawnY) {
         super(game.assets.get("red_wizard.png", Texture.class));
         this.speed = speed;
         blinkTimer = 0f;
         stateTime = 0f;
         this.client = client;
 
+        setX(spawnX * 64);
+        setY(spawnY * 64);
         this.inputUpdate = new Messages.InputUpdate();
 
         inputUpdate.moveX = getX();
@@ -57,7 +59,7 @@ public class Player extends Sprite {
         int dX = 0;
         int dY = 0;
 
-        float blinkDistance = 100f;
+        float blinkDistance = 200f;
         boolean blinked = blink();
 
         if(Gdx.input.isKeyPressed(Input.Keys.W)) {
@@ -98,7 +100,7 @@ public class Player extends Sprite {
         if(blinkTimer <= 0 && !blinked && Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)) {
             blinked = true;
             stateTime = 0f;
-            blinkTimer = 2f;
+            blinkTimer = 2.4f;
         }
         return blinked;
     }

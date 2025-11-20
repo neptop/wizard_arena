@@ -284,6 +284,7 @@ public class ListenServer {
     private int assignClientId() {
         for (int i = 1; i <= MAX_CLIENTS; i++) {
             if (!clients.containsKey(i)) {
+                System.out.println(i);
                 return i;
             }
         }
