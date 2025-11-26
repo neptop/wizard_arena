@@ -40,7 +40,7 @@ public class Messages {
         public float aimX; // aiming direction
         public float aimY;
         public boolean castSpell; // spell casting input
-        public boolean dash;
+        public boolean blink; // blink ability input
     }
 
     // server to client on each snapshot
@@ -59,12 +59,14 @@ public class Messages {
         public float y;
         public float hp;
         public int lastProcessedInput; // last input seq processed by server
+        public float blinkCooldown; // time remaining for blink ability cooldown
         public PlayerState(int id, float x, float y, float hp) {
             this.id = id;
             this.x = x;
             this.y = y;
             this.hp = hp;
             this.lastProcessedInput = 0;
+            this.blinkCooldown = 0f;
         }
     }
 
@@ -132,4 +134,35 @@ public class Messages {
     public static class StartGame implements Msg {
         public StartGame() {}
     }
+
+    public static class DamageRequest implements Msg {
+        public int playerId;
+        public float amount;
+        public DamageRequest() {}
+        public DamageRequest(int playerId, float amount) {
+            this.playerId = playerId;
+            this.amount = amount;
+        }
+    }
+
+    public static class HealRequest implements Msg {
+        public int playerId;
+        public float amount;
+        public HealRequest() {}
+        public HealRequest(int playerId, float amount) {
+            this.playerId = playerId;
+            this.amount = amount;
+        }
+    }
+
+    public static class GodmodeRequest implements Msg {
+        public int playerId;
+        public boolean enabled;
+        public GodmodeRequest() {}
+        public GodmodeRequest(int playerId, boolean enabled) {
+            this.playerId = playerId;
+            this.enabled = enabled;
+        }
+    }
+
 }

@@ -22,9 +22,12 @@ public class Player extends Sprite {
     float speed;
 
     //  Blink Stuff
+    private static final float BLINK_COOLDOWN = 2.4f;
+    private static final float BLINK_DISTANCE = 200f;
 
-    private float blinkTimer;
+    private float blinkTimer = 0f;
     public boolean blinked;
+    private boolean canBlink; // input flag to send to server
 
     //  general timer
     private float stateTime;
@@ -44,6 +47,13 @@ public class Player extends Sprite {
     private float interpTargetY;
     private float interpT = 1f; // interpolation factor, 1 = at target
 
+    // health
+    public float health = 100f;
+    public float maxHealth = 100f;
+
+    // cheats
+    public boolean godMode = false;
+
 
     public Player(wizardGame game, float speed, Client client, int spawnX, int spawnY) {
         super(game.assets.get("red_wizard.png", Texture.class));
@@ -54,15 +64,15 @@ public class Player extends Sprite {
 
         setX(spawnX * 64);
         setY(spawnY * 64);
+
+        this.maxHealth = 100f;
+        this.health = maxHealth;
     }
 
-    public boolean movement() {
+    public void movement() {
 
         int dX = 0;
         int dY = 0;
-
-        float blinkDistance = 200f;
-        boolean blinked = blink();
 
         if(Gdx.input.isKeyPressed(Input.Keys.W)) {
             dY = 1;
@@ -84,40 +94,50 @@ public class Player extends Sprite {
         /*if (dX != 0 || dY != 0) {
             System.out.println("local input: (" + dX + ", " + dY + ")");
         } */
-
-        if(blinked) {
-            setX(getX() + dX * blinkDistance );
-            setY(getY() + dY * blinkDistance );
-        }
-        return blinked;
     }
 
-    public boolean blink() {
-        float delta = Gdx.graphics.getDeltaTime();
+    public void blink(float delta) {
         if(blinkTimer > 0) {
             blinkTimer -= delta;
             if(blinkTimer <= 0 ) {
                 blinkTimer = 0;
             }
-            blinked = false;
         }
-        if(blinkTimer <= 0 && !blinked && Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)) {
+
+        blinked = false;
+        canBlink = false;
+
+        if(blinkTimer <= 0f && Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)) {
             blinked = true;
             stateTime = 0f;
             blinkTimer = 2.4f;
+            canBlink = true;
         }
-        return blinked;
     }
 
     public void update(boolean hudOpen) {
 
         float time = Gdx.graphics.getDeltaTime();
+        stateTime += time;
 
-        boolean blink = movement();
+        if (hudOpen) {
+            blink(time); // still update blink cooldown while hud is open
+            return; // skip movement and input sending when hud is open
+        }
 
-        // local movement update
+        // read inputs
+        movement();
+        blink(time);
+
+        // local movement update for client-side prediction
         setX(getX() + xVelocity * speed * time);
         setY(getY() + yVelocity * speed * time);
+
+        if(blinked){
+            setX(getX() + xVelocity * BLINK_DISTANCE);
+            setY(getY() + yVelocity * BLINK_DISTANCE);
+        }
+
 
         // send input to server
         if (client != null) {
@@ -133,12 +153,12 @@ public class Player extends Sprite {
             iu.aimX = 0f; // aiming direction
             iu.aimY = 0f;
             iu.castSpell = false; // spell casting input
-            iu.dash = false;
+            iu.blink = canBlink; // blink ability input
 
             pendingInputs.add(iu); // store input for client-side prediction
 
             try {
-                client.send(iu);
+                  client.send(iu);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -162,6 +182,13 @@ public class Player extends Sprite {
                 // reapply this input
                 setX(getX() + input.moveX * speed * input.dt);
                 setY(getY() + input.moveY * speed * input.dt);
+
+                // reapply blink if it was used
+                if(input.blink) {
+                    setX(getX() + input.moveX * BLINK_DISTANCE);
+                    setY(getY() + input.moveY * BLINK_DISTANCE);
+                }
+
                 i++;
             }
         }
@@ -199,4 +226,23 @@ public class Player extends Sprite {
         setY(newY);
     }
 
+    public void setGodMode(boolean godMode) {
+        this.godMode = godMode;
+    }
+
+    public boolean isGodMode() {
+        return godMode;
+    }
+
+    public void setHealth(float health) {
+        this.health = health;
+    }
+
+    public float getHealth() {
+        return health;
+    }
+
+    public float getMaxHealth() {
+        return maxHealth;
+    }
 }

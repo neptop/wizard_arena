@@ -19,6 +19,12 @@ public class ListenServer {
     private final long serverStartTime = System.nanoTime();
     private final Map<Integer, String> playerNames = new ConcurrentHashMap<>();
 
+    private static final float BLINK_COOLDOWN = 2.4f; // seconds
+    private static final float BLINK_DISTANCE = 200f; // units
+
+    private static final float MAX_HP = 100f;
+    private final Set<Integer> godModePlayers = ConcurrentHashMap.newKeySet();
+
     private final Map<Integer, PlayerState> players = new ConcurrentHashMap<>(); // Map of clientId to PlayerState
     private final List<ProjectileState> projectiles = Collections.synchronizedList(new ArrayList<>()); // List of active projectiles
 
@@ -126,8 +132,9 @@ public class ListenServer {
                         ? joinRequest.playerName : "Player" + clientId;
 
                 playerNames.put(clientId, playerName);
-                PlayerState ps = new PlayerState(clientId, 100 + clientId * 20, 100, 100f); // spawn player at position
+                PlayerState ps = new PlayerState(clientId, 100 + clientId * 20, 100, MAX_HP); // spawn player at position
                 ps.lastProcessedInput = 0;
+                ps.blinkCooldown = 0f;
                 players.put(clientId, ps); // add to player states
 
                 // send JoinResponse
@@ -153,11 +160,49 @@ public class ListenServer {
                                     p.x += iu.moveX * speed * dt;
                                     p.y += iu.moveY * speed * dt;
 
+                                    p.blinkCooldown = Math.max(0f, p.blinkCooldown - dt); // reduce blink cooldown
+
+                                    if(iu.blink && p.blinkCooldown <= 0f) {
+                                        p.x += iu.moveX * BLINK_DISTANCE;
+                                        p.y += iu.moveY * BLINK_DISTANCE;
+                                        p.blinkCooldown = BLINK_COOLDOWN;
+                                    }
+
                                     p.lastProcessedInput = iu.seq; // update last processed input seq
                                 }
                             } else if (obj instanceof Ping) {
                                 Ping ping = (Ping) obj;
                                 sendTo(c, new Pong(ping.clientTime, System.nanoTime()));
+                            } else if (obj instanceof DamageRequest) {
+                                DamageRequest dr = (DamageRequest) obj;
+                                PlayerState p = players.get(dr.playerId);
+                                if (p == null) continue;
+                                if (dr. amount > 0 && godModePlayers.contains(dr.playerId)) {
+                                    // ignore damage in god mode
+                                    continue;
+                                }
+                                if (p != null) {
+                                    p.hp -= dr.amount;
+                                    if (p.hp < 0f) p.hp = 0f;
+                                    if (p.hp > MAX_HP) p.hp = MAX_HP;
+                                    System.out.println("Player " + dr.playerId + " took " + dr.amount + " damage, HP = " + p.hp);
+                                }
+                            } else if (obj instanceof HealRequest) {
+                                HealRequest hr = (HealRequest) obj;
+                                PlayerState p = players.get(hr.playerId);
+                                if ( p == null) continue;
+                                p.hp += hr.amount;
+                                if (p.hp > MAX_HP) p.hp = MAX_HP;
+                                System.out.println("Player " + hr.playerId + " healed " + hr.amount + ", HP = " + p.hp);
+                            } else if (obj instanceof GodmodeRequest) {
+                                GodmodeRequest gr = (GodmodeRequest) obj;
+                                if (gr.enabled) {
+                                    godModePlayers.add(gr.playerId);
+                                    System.out.println("Player " + gr.playerId + " enabled god mode.");
+                                } else {
+                                    godModePlayers.remove(gr.playerId);
+                                    System.out.println("Player " + gr.playerId + " disabled god mode.");
+                                }
                             }
                         }
                     } catch (IOException | ClassNotFoundException e) {

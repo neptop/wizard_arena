@@ -7,10 +7,12 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.Input;
 import io.github.wizard_arena.Player;
 import io.github.wizard_arena.Tile;
 import io.github.wizard_arena.net.*;
 import io.github.wizard_arena.wizardGame;
+import io.github.wizard_arena.debug.CheatConsole;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,6 +47,8 @@ public class PlayScreen extends ScreenAdapter {
     //  camera setup
     private OrthographicCamera camera;
 
+    // cheat console
+    private CheatConsole console;
 
     // host constructor
     public PlayScreen(wizardGame game, ListenServer server, Client client) {
@@ -131,6 +135,10 @@ public class PlayScreen extends ScreenAdapter {
         if (client != null) {
             playerSprites.put(client.clientId, player);
         }
+
+        // setup cheat console
+        console = new CheatConsole();
+        console.setExecutor(this::executeCheat);
     }
 
     @Override
@@ -140,6 +148,16 @@ public class PlayScreen extends ScreenAdapter {
 
     @Override
     public void render(float delta) {
+        // toggle console with tilde (`) or F1
+        if (Gdx.input.isKeyJustPressed(Input.Keys.GRAVE) || Gdx.input.isKeyJustPressed(Input.Keys.F1)) {
+            if (console.isVisible()) {
+                console.hide();
+            } else {
+                console.show();
+            }
+        }
+
+
         // check connection status before anything
         if (client == null || !client.isConnected() || client.clientId < 0) {
             Gdx.gl.glClearColor(0, 0, 0, 1);
@@ -149,6 +167,9 @@ public class PlayScreen extends ScreenAdapter {
             Gdx.app.postRunnable(() -> game.setScreen(new MainMenuScreen(game)));
             return;
         }
+
+        // pass whether the console is open to player
+        player.update(console != null && console.isVisible());
 
         // process incoming messages
         for (Msg m; (m = client.pollMessage()) != null; ) {
@@ -163,19 +184,22 @@ public class PlayScreen extends ScreenAdapter {
                         // create new player sprite
                         if (ps.id == client.clientId) {
                             p = player; // use local player instance
+                            playerSprites.put(ps.id, p);
                         } else {
                             // remote player
                             p = new Player(game, 300f, null, playerSpawnX, playerSpawnY);
+                            playerSprites.put(ps.id, p);
                         }
-                        playerSprites.put(ps.id, p);
                     }
 
                     if (ps.id == client.clientId) {
                         // this is the local player, so apply server reconciliation
                         p.applyServerState(ps.x, ps.y, ps.lastProcessedInput);
+                        p.setHealth(ps.hp); // update health
                     } else {
                         // remote player, directly set position
                         p.startInter(ps.x, ps.y);
+                        p.setHealth(ps.hp); // update health
                     }
 
                     // debug: check what client thinks is applying the snapshot
@@ -215,6 +239,11 @@ public class PlayScreen extends ScreenAdapter {
         }
 
         game.batch.end();
+
+        // render console on top
+        if (console != null) {
+            console.render(delta);
+        }
     }
 
     @Override
@@ -255,5 +284,85 @@ public class PlayScreen extends ScreenAdapter {
         camera.update();
     }
 
+    private void executeCheat(String cmd) {
+        if (console == null) return;
 
+        String line = cmd.trim();
+        if (line.isEmpty()) return;
+
+        String lower = line.toLowerCase();
+
+        // help cmd
+        if (lower.equals("help")) {
+            console.print("Available commands:");
+            console.print("help - show this help message");
+            console.print("god - player takes no damage (toggle)");
+            console.print("heal - restore player health to max");
+            console.print("tkdmg <amount> - take <amount> damage");
+            return;
+        }
+
+        // god mode toggle
+        if (lower.equals("god")) {
+            if (player == null) {
+                console.print("player not initialized");
+                return;
+            }
+
+            boolean enable = !player.isGodMode();
+
+            if (client != null && client.clientId > 0){
+                try {
+                    client.send(new GodmodeRequest(client.clientId, enable));
+                } catch (Exception e) {
+                    console.print("failed to send godmode request: " + e.getMessage());
+                }
+            }
+
+            player.setGodMode(enable);
+            console.print("god mode enabled");
+            return;
+        }
+
+        // heal to max health
+        if (lower.equals("heal")) {
+            if (client != null && client.clientId > 0){
+                try {
+                    client.send(new HealRequest(client.clientId, 100f));
+                } catch (Exception e) {
+                    console.print("failed to send heal request: " + e.getMessage());
+                }
+            }
+            console.print("player healed to max health");
+            return;
+        }
+
+        // take damage
+        if (lower.startsWith("tkdmg ")) {
+            String[] parts = line.split("\\s+");
+            if (parts.length < 2) {
+                console.print("usage: tkdmg <amount>");
+                return;
+            }
+            try {
+                float amount = Float.parseFloat(parts[1]);
+                if (amount < 0) {
+                    console.print("amount must be non-negative");
+                    return;
+                }
+                if (client != null && client.clientId > 0){
+                    try {
+                        client.send(new DamageRequest(client.clientId, amount));
+                    } catch (Exception e) {
+                        console.print("failed to send damage request: " + e.getMessage());
+                    }
+                }
+                console.print("player took " + amount + " damage");
+            } catch (NumberFormatException e) {
+                console.print("invalid amount: " + parts[1]);
+            }
+            return;
+        }
+        console.print("unknown command: " + line);
+    }
 }
