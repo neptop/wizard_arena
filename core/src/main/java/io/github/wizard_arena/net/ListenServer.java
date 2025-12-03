@@ -1,9 +1,12 @@
 package io.github.wizard_arena.net;
 
+import io.github.wizard_arena.MapLoader;
+import io.github.wizard_arena.SpawnPoint;
 import io.github.wizard_arena.net.Messages.*;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.util.Random;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 
@@ -28,6 +31,30 @@ public class ListenServer {
     private final Map<Integer, PlayerState> players = new ConcurrentHashMap<>(); // Map of clientId to PlayerState
     private final List<ProjectileState> projectiles = Collections.synchronizedList(new ArrayList<>()); // List of active projectiles
 
+    private final List<SpawnPoint> spawnPoints;
+    private final Random random = new Random();
+
+    private enum RoundState {
+        WAITING,
+        IN_PROGRESS,
+        POST_ROUND,
+        MATCH_OVER
+    }
+    private RoundState currentRoundState = RoundState.WAITING;
+
+    private static final float ROUND_DURATION = 120f;
+    private static final float POST_ROUND_DELAY = 10f; // time between rounds
+    private static final int ROUNDS_TO_WIN = 5;
+
+    private float roundTimer = 0f;
+    private float postRoundTimer = 0f;
+    private int currentRound = 0;
+    private int lastRoundWinnerId = -1;
+    private int matchWinnerId = -1;
+
+    // track wins per player
+    private final Map<Integer, Integer> winCount = new ConcurrentHashMap<>();
+
     private static class ClientHandler {
         final int clientId;
         final Socket socket;
@@ -47,6 +74,7 @@ public class ListenServer {
     public ListenServer(int port) {
         this.port = port;
         this.hostIP = detectHostIP();
+        this.spawnPoints = MapLoader.loadSpawnPoints("map1.txt");
     }
 
     // helper method to choose a LAN IP address
@@ -132,9 +160,11 @@ public class ListenServer {
                         ? joinRequest.playerName : "Player" + clientId;
 
                 playerNames.put(clientId, playerName);
-                PlayerState ps = new PlayerState(clientId, 100 + clientId * 20, 100, MAX_HP); // spawn player at position
+                PlayerState ps = new PlayerState(clientId, 0f, 0f, MAX_HP); // spawn player at position
                 ps.lastProcessedInput = 0;
                 ps.blinkCooldown = 0f;
+                ps.alive = true;
+                ps.roundsWon = winCount.getOrDefault(clientId, 0); // retrieve previous wins
                 players.put(clientId, ps); // add to player states
 
                 // send JoinResponse
@@ -181,12 +211,23 @@ public class ListenServer {
                                     // ignore damage in god mode
                                     continue;
                                 }
-                                if (p != null) {
-                                    p.hp -= dr.amount;
-                                    if (p.hp < 0f) p.hp = 0f;
-                                    if (p.hp > MAX_HP) p.hp = MAX_HP;
-                                    System.out.println("Player " + dr.playerId + " took " + dr.amount + " damage, HP = " + p.hp);
+
+                                float prevHp = p.hp;
+                                p.hp -= dr.amount;
+                                if (p.hp < 0f) p.hp = 0f;
+                                if (p.hp > MAX_HP) p.hp = MAX_HP;
+
+                                // death handling
+                                if (prevHp > 0f && p.hp <= 0f) {
+                                    p.alive = false;
+                                    System.out.println("Player " + dr.playerId + " is dead");
+                                    if (currentRoundState == RoundState.IN_PROGRESS) {
+                                        checkPlayersAlive();
+                                    }
                                 }
+                                System.out.println("Player " + dr.playerId + " took " + dr.amount + " damage, HP = " + p.hp);
+
+
                             } else if (obj instanceof HealRequest) {
                                 HealRequest hr = (HealRequest) obj;
                                 PlayerState p = players.get(hr.playerId);
@@ -254,8 +295,12 @@ public class ListenServer {
                 }
                 continue;
             }
+            float dt = (now - prevTime) / 1_000_000_000f; // delta time in seconds
             prevTime = now;
             tick++;
+
+            // update round logic
+            updateGame(dt);
 
             // TODO: update game state (projectiles, collisions, etc.)
 
@@ -279,6 +324,13 @@ public class ListenServer {
         snapshot.serverTime = System.nanoTime();
         snapshot.players = playerStates;
         snapshot.projectiles = projectileStates;
+
+        snapshot.roundNumber = currentRound;
+        snapshot.roundTimeRemaining = roundTimer;
+        snapshot.roundState = currentRoundState.ordinal(); // 0=waiting,1=in progress,2=post round,3=match over
+        snapshot.roundWinnerId = lastRoundWinnerId;
+        snapshot.matchWinnerId = matchWinnerId;
+        snapshot.postRoundTimeRemaining = postRoundTimer;
 
         for (ClientHandler client : clients.values()) {
             sendTo(client, snapshot);
@@ -335,6 +387,10 @@ public class ListenServer {
     }
 
     public void sendStartGame() {
+        if (currentRoundState == RoundState.WAITING){
+            startNewRound();
+        }
+
         StartGame startGame = new StartGame();
         for (ClientHandler client : clients.values()) {
             sendTo(client, startGame);
@@ -349,5 +405,152 @@ public class ListenServer {
             }
         }
         return -1; // full
+    }
+
+    // assign spawn points to players at the start of each round
+    private void assignSpawns(){
+        if (spawnPoints == null || spawnPoints.isEmpty()) {
+            System.out.println("no spawn points available");
+            return;
+        }
+
+        List<PlayerState> playerStates = new ArrayList<>(players.values());
+        if (playerStates.isEmpty()) {
+            System.out.println("no players to assign spawns to");
+            return;
+        }
+
+        List<Integer> indices = new ArrayList<>();
+        for (int i = 0; i < spawnPoints.size(); i++) {
+            indices.add(i);
+        }
+
+        Collections.shuffle(indices, random);
+        int spawnIndex = 0;
+        for (PlayerState p : playerStates) {
+            if(indices.isEmpty()){
+                System.out.println("not enough spawn points for all players");
+                break;
+            }
+
+            if (spawnIndex >= indices.size()) {
+                spawnIndex = 0; // wrap around if more players than spawn points *shouldn't happen*
+            }
+
+            int chosenIndex = indices.get(spawnIndex++);
+            SpawnPoint sp = spawnPoints.get(chosenIndex);
+            p.x = sp.x;
+            p.y = sp.y;
+            p.hp = MAX_HP; // reset health on spawn
+            p.alive = true;
+            p.blinkCooldown = 0f; // reset blink cooldown
+            System.out.println("Assigned spawn to player " + p.id + " at (" + p.x + ", " + p.y + ")");
+        }
+    }
+
+    //
+    private void updateGame(float dt) {
+        switch(currentRoundState){
+            case WAITING:
+                // TODO: check if enough players to start
+                break;
+            case IN_PROGRESS:
+                roundTimer -= dt;
+                if (roundTimer <= 0f) {
+                    int aliveCount = 0;
+                    int lastAliveId = -1;
+                    for (PlayerState p : players.values()) {
+                        if (p.alive) {
+                            aliveCount++;
+                            lastAliveId = p.id;
+                        }
+                    }
+                    if (aliveCount == 1) {
+                        endRound(lastAliveId);
+                    } else {
+                        endRound(-1); // no winner
+                    }
+                } else {
+                    checkPlayersAlive();
+                }
+                break;
+            case POST_ROUND:
+                postRoundTimer -= dt;
+                if (postRoundTimer <= 0f) {
+                    startNewRound();
+                }
+                break;
+            case MATCH_OVER:
+                // TODO: handle match over state by waiting for restart or lobby return
+                break;
+        }
+    }
+
+    private void checkPlayersAlive(){
+        if (currentRoundState != RoundState.IN_PROGRESS) return;
+        int aliveCount = 0;
+        int lastAliveId = -1;
+
+        for (PlayerState p : players.values()) {
+            if (p.alive) {
+                aliveCount++;
+                lastAliveId = p.id;
+            }
+        }
+
+        // if 0 alive draw, if 1 alive that player wins
+        if (aliveCount <= 1) {
+            endRound(lastAliveId);
+        }
+    }
+
+    private void startNewRound() {
+        currentRound++;
+        roundTimer = ROUND_DURATION;
+        postRoundTimer = 0f;
+        lastRoundWinnerId = -1;
+
+        if (matchWinnerId != -1) {
+            currentRoundState = RoundState.MATCH_OVER;
+            System.out.println("match over, player " + matchWinnerId + " won the match");
+            return;
+        }
+
+        assignSpawns();
+
+        // reset players
+        for (PlayerState p : players.values()) {
+            p.hp = MAX_HP;
+            p.alive = true;
+            p.blinkCooldown = 0f;
+            p.roundsWon = winCount.getOrDefault(p.id, 0);
+        }
+
+        currentRoundState = RoundState.IN_PROGRESS;
+        System.out.println("Round " + currentRound + " started.");
+    }
+
+    private void endRound(int winnerID){
+        currentRoundState = RoundState.POST_ROUND;
+        postRoundTimer = POST_ROUND_DELAY;
+        lastRoundWinnerId = winnerID;
+
+        if (winnerID != -1) {
+            winCount.merge(winnerID, 1, Integer::sum);
+            int wins = winCount.get(winnerID);
+            PlayerState p = players.get(winnerID);
+            if (p != null) {
+                p.roundsWon = wins;
+            }
+            System.out.println("Round " + currentRound + " won by player " + winnerID + " (Total Wins: " + wins + ")");
+            if (wins >= ROUNDS_TO_WIN) {
+                matchWinnerId = winnerID;
+                currentRoundState = RoundState.MATCH_OVER;
+                postRoundTimer = 0f;
+                System.out.println("player " + winnerID + " won the match");
+            }
+        } else {
+            System.out.println("Round " + currentRound + " ended with no winner.");
+        }
     }
 }

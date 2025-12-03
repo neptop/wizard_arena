@@ -8,6 +8,9 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.Color;
 import io.github.wizard_arena.Player;
 import io.github.wizard_arena.Tile;
 import io.github.wizard_arena.net.*;
@@ -15,6 +18,7 @@ import io.github.wizard_arena.wizardGame;
 import io.github.wizard_arena.debug.CheatConsole;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.HashMap;
@@ -40,8 +44,6 @@ public class PlayScreen extends ScreenAdapter {
     private int map_width;
     Texture floor;
     Texture wall;
-    private int playerSpawnX;
-    private int playerSpawnY;
     final private int spriteSize = 64;  //all sprites and tile sizes are 64x64
 
     //  camera setup
@@ -49,6 +51,18 @@ public class PlayScreen extends ScreenAdapter {
 
     // cheat console
     private CheatConsole console;
+
+    // round state
+    private int roundNumber = 0;
+    private int roundState = 0; // 0 = waiting, 1 = in progress, 2 = post round, 3 = match over
+    private float roundTimeRemaining = 0f;
+    private float postRoundTimeRemaining = 0f;
+    private int roundWinnerId = -1;
+    private int matchWinnerId = -1;
+
+    // ui stuff
+    private BitmapFont font;
+    private ShapeRenderer shapeRenderer;
 
     // host constructor
     public PlayScreen(wizardGame game, ListenServer server, Client client) {
@@ -118,8 +132,6 @@ public class PlayScreen extends ScreenAdapter {
                 char c = line.charAt(j);
                 Texture curr_tile;
                 if(c == 'P') {
-                    playerSpawnX = j;
-                    playerSpawnY = i;
                     curr_tile = floor;
                 } else if (c == 'X' ) {
                     curr_tile = wall;
@@ -131,7 +143,8 @@ public class PlayScreen extends ScreenAdapter {
             }
         }
 
-        player = new Player(game, 300f, client, playerSpawnX, playerSpawnY);
+        // spawn point gets updated when snapshot received
+        player = new Player(game, 300f, client, 0, 0);
         if (client != null) {
             playerSprites.put(client.clientId, player);
         }
@@ -139,6 +152,10 @@ public class PlayScreen extends ScreenAdapter {
         // setup cheat console
         console = new CheatConsole();
         console.setExecutor(this::executeCheat);
+
+        // setup ui
+        font = new BitmapFont();
+        shapeRenderer = new ShapeRenderer();
     }
 
     @Override
@@ -168,8 +185,9 @@ public class PlayScreen extends ScreenAdapter {
             return;
         }
 
-        // pass whether the console is open to player
-        player.update(console != null && console.isVisible());
+        // block input if console is open or round not in progress
+        boolean blockInput = (console != null && console.isVisible()) || (roundState != 1);
+        player.update(blockInput);
 
         // process incoming messages
         for (Msg m; (m = client.pollMessage()) != null; ) {
@@ -187,7 +205,7 @@ public class PlayScreen extends ScreenAdapter {
                             playerSprites.put(ps.id, p);
                         } else {
                             // remote player
-                            p = new Player(game, 300f, null, playerSpawnX, playerSpawnY);
+                            p = new Player(game, 300f, null, 0, 0); // spawn will be updated at next snapshot
                             playerSprites.put(ps.id, p);
                         }
                     }
@@ -196,10 +214,14 @@ public class PlayScreen extends ScreenAdapter {
                         // this is the local player, so apply server reconciliation
                         p.applyServerState(ps.x, ps.y, ps.lastProcessedInput);
                         p.setHealth(ps.hp); // update health
+                        p.setAlive(ps.alive);
+                        p.setRoundsWon(ps.roundsWon);
                     } else {
                         // remote player, directly set position
                         p.startInter(ps.x, ps.y);
                         p.setHealth(ps.hp); // update health
+                        p.setAlive(ps.alive);
+                        p.setRoundsWon(ps.roundsWon);
                     }
 
                     // debug: check what client thinks is applying the snapshot
@@ -208,6 +230,13 @@ public class PlayScreen extends ScreenAdapter {
                 }
                 // remove players that aren't in the snapshot i.e. disconnected
                 playerSprites.entrySet().removeIf(e -> !updatedPlayerIds.contains(e.getKey()));
+
+                roundNumber = s.roundNumber;
+                roundTimeRemaining = s.roundTimeRemaining;
+                roundState = s.roundState;
+                roundWinnerId = s.roundWinnerId;
+                matchWinnerId = s.matchWinnerId;
+                postRoundTimeRemaining = s.postRoundTimeRemaining;
             }
         }
 
@@ -235,10 +264,16 @@ public class PlayScreen extends ScreenAdapter {
             }
         }
         for (Player p : playerSprites.values()) {
+            if(!p.isAlive()) continue;
             p.draw(game.batch);
         }
 
         game.batch.end();
+
+        // render the between round overlay
+        if (roundState == 2 || roundState == 3) {
+            drawRoundOverlay();
+        }
 
         // render console on top
         if (console != null) {
@@ -284,6 +319,68 @@ public class PlayScreen extends ScreenAdapter {
         camera.update();
     }
 
+    private void drawRoundOverlay() {
+        Gdx.gl.glEnable(GL20.GL_BLEND); // enable blending for transparency
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.setProjectionMatrix(camera.combined);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(new Color(0, 0, 0, 0.6f));
+        shapeRenderer.rect(camera.position.x - camera.viewportWidth / 2f,
+                camera.position.y - camera.viewportHeight / 2f,
+                camera.viewportWidth,
+                camera.viewportHeight
+        );
+        shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+
+        // draw text
+        // round winner + leaderboard + countdown to next round
+        game.batch.begin();
+        font.setColor(Color.WHITE);
+
+        float centerX = camera.position.x;
+        float centerY = camera.position.y;
+
+        // title
+        String title = "Round " + roundNumber + " Over";
+        if(roundState == 3) {
+            title = "Match Over";
+        }
+        font.draw(game.batch, title, centerX - 150, centerY + 100);
+
+        // winner text
+        String winnerText;
+        if (roundState == 3 && matchWinnerId != -1){
+            winnerText = "Player " + matchWinnerId + " wins the match!";
+        } else if (roundWinnerId != -1) {
+            winnerText = "Player " + roundWinnerId + " wins the round!";
+        } else {
+            winnerText = "Round ended in a draw!";
+        }
+        font.draw(game.batch, winnerText, centerX - 150, centerY + 70);
+
+        // leaderboard
+        List<Map.Entry<Integer, Player>> entries = new ArrayList<>(playerSprites.entrySet());
+        entries.sort((a, b) -> Integer.compare(b.getValue().getRoundsWon(), a.getValue().getRoundsWon()));
+        float leaderboardY = centerY + 40;
+        int rank = 1;
+        for (Map.Entry<Integer, Player> entry : entries) {
+            Player player = entry.getValue();
+            String lbLine = rank + ". Player " + entry.getKey() + " - Rounds Won: " + player.getRoundsWon();
+            font.draw(game.batch, lbLine, centerX - 150, leaderboardY);
+            leaderboardY -= 20;
+            rank++;
+        }
+
+        // countdown to next round
+        if (roundState == 2){
+            int secs = (int) Math.ceil(postRoundTimeRemaining);
+            String countdownText = "Next round in: " + secs + " seconds";
+            font.draw(game.batch, countdownText, centerX - 150, centerY - 20);
+        }
+        game.batch.end();
+    }
+
     private void executeCheat(String cmd) {
         if (console == null) return;
 
@@ -299,6 +396,41 @@ public class PlayScreen extends ScreenAdapter {
             console.print("god - player takes no damage (toggle)");
             console.print("heal - restore player health to max");
             console.print("tkdmg <amount> - take <amount> damage");
+            console.print("die - instantly die");
+            console.print("killall - instantly kill all other players (should end round as a draw)");
+            return;
+        }
+
+        // instant die
+        if(lower.equals("die")) {
+            if (client != null && client.clientId > 0){
+                try {
+                    client.send(new DamageRequest(client.clientId, 9999f));
+                } catch (Exception e) {
+                    console.print("failed to send damage request: " + e.getMessage());
+                }
+            } else {
+                console.print("cmd failed");
+                return;
+            }
+            console.print("player died");
+            return;
+        }
+
+        // kill all other players (should result in a round draw)
+        if(lower.equals("killall")) {
+            if(client != null && client.clientId > 0){
+                try {
+                    for (Integer id : playerSprites.keySet()) {
+                        client.send(new DamageRequest(id, 9999f));
+                    }
+                    console.print("all players killed");
+                } catch (Exception e) {
+                    console.print("failed to send damage requests: " + e.getMessage());
+                }
+            } else {
+                console.print("cmd failed");
+            }
             return;
         }
 
@@ -320,7 +452,7 @@ public class PlayScreen extends ScreenAdapter {
             }
 
             player.setGodMode(enable);
-            console.print("god mode enabled");
+            console.print("god mode toggled");
             return;
         }
 

@@ -49,6 +49,14 @@ public class Messages {
         public long serverTime; // server timestamp
         public List<PlayerState> players;
         public List<ProjectileState> projectiles;
+
+        public int roundNumber; // current round number
+        public float roundTimeRemaining; // time remaining in the current round before sudden death
+        public int roundState; // 0 = waiting, 1 = in progress, 2 = post round, 3 = match over
+        public int roundWinnerId; // id of the player who won the round, -1 if no winner yet
+        public int matchWinnerId; // id of the player who won the match, -1 if no winner yet
+        public float postRoundTimeRemaining; // time remaining in post round state
+
         public Snapshot() {}
     }
 
@@ -60,6 +68,8 @@ public class Messages {
         public float hp;
         public int lastProcessedInput; // last input seq processed by server
         public float blinkCooldown; // time remaining for blink ability cooldown
+        public boolean alive;
+        public int roundsWon;
         public PlayerState(int id, float x, float y, float hp) {
             this.id = id;
             this.x = x;
@@ -67,6 +77,8 @@ public class Messages {
             this.hp = hp;
             this.lastProcessedInput = 0;
             this.blinkCooldown = 0f;
+            this.alive = true;
+            this.roundsWon = 0;
         }
     }
 

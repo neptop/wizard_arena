@@ -51,6 +51,10 @@ public class Player extends Sprite {
     public float health = 100f;
     public float maxHealth = 100f;
 
+    // status
+    private boolean alive = true;
+    private int roundsWon = 0;
+
     // cheats
     public boolean godMode = false;
 
@@ -119,6 +123,11 @@ public class Player extends Sprite {
 
         float time = Gdx.graphics.getDeltaTime();
         stateTime += time;
+
+        // dead so skip input processing
+        if(!alive){
+            return;
+        }
 
         if (hudOpen) {
             blink(time); // still update blink cooldown while hud is open
@@ -244,5 +253,21 @@ public class Player extends Sprite {
 
     public float getMaxHealth() {
         return maxHealth;
+    }
+
+    public boolean isAlive() {
+        return alive;
+    }
+
+    public void setAlive(boolean alive) {
+        this.alive = alive;
+    }
+
+    public int getRoundsWon() {
+        return roundsWon;
+    }
+
+    public void setRoundsWon(int roundsWon) {
+        this.roundsWon = roundsWon;
     }
 }
