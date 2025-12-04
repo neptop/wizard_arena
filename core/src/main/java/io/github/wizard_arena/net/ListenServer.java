@@ -3,6 +3,7 @@ package io.github.wizard_arena.net;
 import io.github.wizard_arena.MapLoader;
 import io.github.wizard_arena.SpawnPoint;
 import io.github.wizard_arena.net.Messages.*;
+import io.github.wizard_arena.spells.*;
 import java.io.*;
 import java.net.*;
 import java.util.*;
@@ -33,6 +34,9 @@ public class ListenServer {
 
     private final List<SpawnPoint> spawnPoints;
     private final Random random = new Random();
+
+    private final Map<Integer, BaseSpell> playerSpells = new ConcurrentHashMap<>();
+    private final AtomicInteger nextProjectileId = new AtomicInteger(1);
 
     private enum RoundState {
         WAITING,
@@ -167,6 +171,9 @@ public class ListenServer {
                 ps.roundsWon = winCount.getOrDefault(clientId, 0); // retrieve previous wins
                 players.put(clientId, ps); // add to player states
 
+                // give player the starter spell
+                playerSpells.put(clientId, new StarterBallSpell());
+
                 // send JoinResponse
                 out.writeObject(new JoinResponse(true, null, clientId, serverStartTime));
                 out.flush();
@@ -187,15 +194,28 @@ public class ListenServer {
                                     float speed = 300f;
                                     float dt = iu.dt;
 
+                                    // movement
                                     p.x += iu.moveX * speed * dt;
                                     p.y += iu.moveY * speed * dt;
 
                                     p.blinkCooldown = Math.max(0f, p.blinkCooldown - dt); // reduce blink cooldown
 
+                                    // blink
                                     if(iu.blink && p.blinkCooldown <= 0f) {
                                         p.x += iu.moveX * BLINK_DISTANCE;
                                         p.y += iu.moveY * BLINK_DISTANCE;
                                         p.blinkCooldown = BLINK_COOLDOWN;
+                                    }
+
+                                    // spell casting
+                                    if(iu.castSpell){
+                                        BaseSpell spell = playerSpells.get(clientId);
+                                        if (spell != null && spell.canCast()){
+                                            int projectileId = nextProjectileId.getAndIncrement();
+                                            spell.spawnProjectile(projectiles, p, iu.aimX, iu.aimY, projectileId);
+                                            spell.onCast();
+                                            System.out.println("player " + clientId + " spawned projectile " + projectileId);
+                                        }
                                     }
 
                                     p.lastProcessedInput = iu.seq; // update last processed input seq
@@ -252,6 +272,7 @@ public class ListenServer {
                     } finally {
                         // cleanup on disconnect
                         players.remove(clientId);
+                        playerSpells.remove(clientId);
                         closeClient(clients.get(clientId));
                         clients.remove(clientId);
                         playerNames.remove(clientId);
@@ -302,7 +323,13 @@ public class ListenServer {
             // update round logic
             updateGame(dt);
 
+            // update spell cooldowns
+            for (BaseSpell spell : playerSpells.values()) {
+                spell.update(dt);
+            }
+
             // TODO: update game state (projectiles, collisions, etc.)
+            updateProjectiles(dt);
 
             snapshotAccumulator += 1.0;
             if (snapshotAccumulator >= snapshotInterval) {
@@ -448,7 +475,7 @@ public class ListenServer {
         }
     }
 
-    //
+    // update game logic per tick
     private void updateGame(float dt) {
         switch(currentRoundState){
             case WAITING:
@@ -483,6 +510,25 @@ public class ListenServer {
             case MATCH_OVER:
                 // TODO: handle match over state by waiting for restart or lobby return
                 break;
+        }
+    }
+
+    // update projectiles per tick
+    private void updateProjectiles(float dt) {
+        synchronized (projectiles) {
+            Iterator<ProjectileState> it = projectiles.iterator();
+            while (it.hasNext()) {
+                ProjectileState proj = it.next();
+                proj.x += proj.vx * dt;
+                proj.y += proj.vy * dt;
+
+                // TEMP: lifetime countdown
+                proj.maxLifetime -= dt;
+                if (proj.maxLifetime <= 0f) {
+                    System.out.println("Projectile " + proj.id + " removed");
+                    it.remove();
+                }
+            }
         }
     }
 

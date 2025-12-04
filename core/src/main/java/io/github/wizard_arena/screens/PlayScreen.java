@@ -11,6 +11,8 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+
 import io.github.wizard_arena.Player;
 import io.github.wizard_arena.Tile;
 import io.github.wizard_arena.net.*;
@@ -64,6 +66,15 @@ public class PlayScreen extends ScreenAdapter {
     private BitmapFont font;
     private ShapeRenderer shapeRenderer;
 
+    // spell
+    private Map<Integer, ProjectileRender> projectileSprites = new HashMap<>();
+    private Texture ballTexture;
+
+    private static class ProjectileRender {
+        public float x;
+        public float y;
+    }
+
     // host constructor
     public PlayScreen(wizardGame game, ListenServer server, Client client) {
         this.game = game;
@@ -111,6 +122,7 @@ public class PlayScreen extends ScreenAdapter {
 
         wall = new Texture(Gdx.files.internal("wall_tile.png"));
         floor = new Texture(Gdx.files.internal("floor_tile.png"));
+        ballTexture = new Texture(Gdx.files.internal("ball.png"));
         FileHandle file;
         file = Gdx.files.internal("map1.txt");
         String text = file.readString();
@@ -187,7 +199,7 @@ public class PlayScreen extends ScreenAdapter {
 
         // block input if console is open or round not in progress
         boolean blockInput = (console != null && console.isVisible()) || (roundState != 1);
-        player.update(blockInput);
+        player.update(blockInput, camera);
 
         // process incoming messages
         for (Msg m; (m = client.pollMessage()) != null; ) {
@@ -237,10 +249,25 @@ public class PlayScreen extends ScreenAdapter {
                 roundWinnerId = s.roundWinnerId;
                 matchWinnerId = s.matchWinnerId;
                 postRoundTimeRemaining = s.postRoundTimeRemaining;
+
+                // process projectiles
+                Set<Integer> updatedProjectileIds = new HashSet<>();
+                if (s.projectiles != null){
+                    for (ProjectileState ps : s.projectiles) {
+                        updatedProjectileIds.add(ps.id);
+                        ProjectileRender pr = projectileSprites.get(ps.id);
+                        if (pr == null) {
+                            pr = new ProjectileRender();
+                            projectileSprites.put(ps.id, pr);
+                        }
+                        pr.x = ps.x;
+                        pr.y = ps.y;
+                    }
+                }
+                // remove projectiles that aren't in the snapshot anymore
+                projectileSprites.entrySet().removeIf(e -> !updatedProjectileIds.contains(e.getKey()));
             }
         }
-
-        player.update(hudOpen);
 
         // update interpolation for remote players
         for (Player p : playerSprites.values()) {
@@ -255,17 +282,24 @@ public class PlayScreen extends ScreenAdapter {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // TODO: draw players and projectiles
         game.batch.begin();
 
+        // draw map tiles
         for(int i = 0 ; i < map_height ; i++) {
             for(int j = 0; j < map_width; j++) {
                 tiles[i][j].render(game.batch);
             }
         }
+
+        // draw players
         for (Player p : playerSprites.values()) {
             if(!p.isAlive()) continue;
             p.draw(game.batch);
+        }
+
+        // draw projectiles
+        for (ProjectileRender pr : projectileSprites.values()) {
+            game.batch.draw(ballTexture, pr.x, pr.y);
         }
 
         game.batch.end();

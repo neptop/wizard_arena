@@ -89,6 +89,8 @@ public class Messages {
         public float y;
         public float vx;
         public float vy;
+        public int ownerId; // id of the player who cast the projectile
+        public float maxLifetime; // maximum lifetime of the projectile in seconds // TEMP
         public ProjectileState() {}
         public ProjectileState(int id, float x, float y, float vx, float vy) {
             this.id = id;
@@ -96,6 +98,8 @@ public class Messages {
             this.y = y;
             this.vx = vx;
             this.vy = vy;
+            this.ownerId = -1;
+            this.maxLifetime = 0f; // TEMP
         }
     }
 

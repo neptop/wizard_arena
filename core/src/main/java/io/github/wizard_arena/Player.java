@@ -2,9 +2,12 @@ package io.github.wizard_arena;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.Input.Buttons;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.math.Vector3;
 import io.github.wizard_arena.net.Client;
 import io.github.wizard_arena.net.Messages;
 import io.github.wizard_arena.net.NetConfig;
@@ -12,6 +15,7 @@ import io.github.wizard_arena.net.NetConfig;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Vector;
 
 public class Player extends Sprite {
 
@@ -119,7 +123,7 @@ public class Player extends Sprite {
         }
     }
 
-    public void update(boolean hudOpen) {
+    public void update(boolean hudOpen, OrthographicCamera camera) {
 
         float time = Gdx.graphics.getDeltaTime();
         stateTime += time;
@@ -147,6 +151,23 @@ public class Player extends Sprite {
             setY(getY() + yVelocity * BLINK_DISTANCE);
         }
 
+        float aimX = 0f;
+        float aimY = 0f;
+
+        if (camera != null) {
+            Vector3 mouse = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f); // mouse position in screen coords
+            camera.unproject(mouse); // convert to world coords
+            float dx = mouse.x - getX();
+            float dy = mouse.y - getY();
+            float lenSq = dx * dx + dy * dy;
+            if (lenSq > 0.0001f) { // prevent division by zero
+                float invLen = (float) (1.0 / Math.sqrt(lenSq));
+                aimX = dx * invLen;
+                aimY = dy * invLen;
+            }
+        }
+
+        boolean cast = Gdx.input.isButtonJustPressed(Buttons.LEFT);
 
         // send input to server
         if (client != null) {
@@ -159,9 +180,9 @@ public class Player extends Sprite {
             iu.dt = time; // delta time since last input
 
 
-            iu.aimX = 0f; // aiming direction
-            iu.aimY = 0f;
-            iu.castSpell = false; // spell casting input
+            iu.aimX = aimX;
+            iu.aimY = aimY;
+            iu.castSpell = cast; // spell casting input
             iu.blink = canBlink; // blink ability input
 
             pendingInputs.add(iu); // store input for client-side prediction
