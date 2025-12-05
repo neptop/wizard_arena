@@ -12,6 +12,15 @@ public class StarterBallSpell extends BaseSpell {
         super(5.0f); // cd time
     }
 
+    public float getDamage() {
+        return 20f;
+    }
+
+    @Override
+    public String getTypeId() {
+        return "starter";
+    }
+
     @Override
     public void spawnProjectile(
         List<ProjectileState> projectiles,
@@ -43,6 +52,7 @@ public class StarterBallSpell extends BaseSpell {
         );
         proj.ownerId = caster.id;
         proj.maxLifetime = MAX_LIFETIME;
+        proj.damage = getDamage();
         projectiles.add(proj);
     }
 }

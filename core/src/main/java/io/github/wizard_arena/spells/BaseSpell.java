@@ -11,6 +11,8 @@ public abstract class BaseSpell {
         this.cooldownTime = cooldownTime;
     }
 
+    public abstract String getTypeId();
+
     public void update(float dt){
         if (cooldownTimer > 0f) {
             cooldownTimer -= dt;
@@ -32,6 +34,10 @@ public abstract class BaseSpell {
 
     public float getCooldownTime() {
         return cooldownTime;
+    }
+
+    public float getDamage() {
+        return 0f; // overridden in each spell
     }
 
     public abstract void spawnProjectile(

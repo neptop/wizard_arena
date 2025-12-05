@@ -66,11 +66,19 @@ public class PlayScreen extends ScreenAdapter {
     private BitmapFont font;
     private ShapeRenderer shapeRenderer;
 
-    // spell
+    // spell projectiles
     private Map<Integer, ProjectileRender> projectileSprites = new HashMap<>();
     private Texture ballTexture;
 
     private static class ProjectileRender {
+        public float x;
+        public float y;
+    }
+
+    // spell pickups
+    private Map<Integer, SpellPickupRender> spellPickupSprites = new HashMap<>();
+    private Texture spellScrollTexture;
+    private static class SpellPickupRender {
         public float x;
         public float y;
     }
@@ -123,6 +131,7 @@ public class PlayScreen extends ScreenAdapter {
         wall = new Texture(Gdx.files.internal("wall_tile.png"));
         floor = new Texture(Gdx.files.internal("floor_tile.png"));
         ballTexture = new Texture(Gdx.files.internal("ball.png"));
+        spellScrollTexture = new Texture(Gdx.files.internal("ball.png")); // TODO: TEMP
         FileHandle file;
         file = Gdx.files.internal("map1.txt");
         String text = file.readString();
@@ -266,6 +275,23 @@ public class PlayScreen extends ScreenAdapter {
                 }
                 // remove projectiles that aren't in the snapshot anymore
                 projectileSprites.entrySet().removeIf(e -> !updatedProjectileIds.contains(e.getKey()));
+
+                // process spell pickups
+                Set<Integer> updatedPickupIds = new HashSet<>();
+                if (s.spellPickups != null) {
+                    for (SpellPickupState sp : s.spellPickups) {
+                        updatedPickupIds.add(sp.id);
+                        SpellPickupRender spr = spellPickupSprites.get(sp.id);
+                        if (spr == null) {
+                            spr = new SpellPickupRender();
+                            spellPickupSprites.put(sp.id, spr);
+                        }
+                        spr.x = sp.x;
+                        spr.y = sp.y;
+                    }
+                }
+                // remove pickups that aren't in the snapshot anymore
+                spellPickupSprites.entrySet().removeIf(e -> !updatedPickupIds.contains(e.getKey()));
             }
         }
 
@@ -300,6 +326,11 @@ public class PlayScreen extends ScreenAdapter {
         // draw projectiles
         for (ProjectileRender pr : projectileSprites.values()) {
             game.batch.draw(ballTexture, pr.x, pr.y);
+        }
+
+        // draw spell pickups
+        for (SpellPickupRender spr : spellPickupSprites.values()) {
+            game.batch.draw(spellScrollTexture, spr.x, spr.y);
         }
 
         game.batch.end();
@@ -432,6 +463,7 @@ public class PlayScreen extends ScreenAdapter {
             console.print("tkdmg <amount> - take <amount> damage");
             console.print("die - instantly die");
             console.print("killall - instantly kill all other players (should end round as a draw)");
+            console.print("spawnspell <name> - spawn a spell of the given name at the player's position");
             return;
         }
 
@@ -526,6 +558,27 @@ public class PlayScreen extends ScreenAdapter {
                 console.print("player took " + amount + " damage");
             } catch (NumberFormatException e) {
                 console.print("invalid amount: " + parts[1]);
+            }
+            return;
+        }
+
+        // spawn spell
+        if (lower.startsWith("spawnspell ")) {
+            String[] parts = line.split("\\s+");
+            if (parts.length < 2) {
+                console.print("usage: spawnspell <name>");
+                return;
+            }
+            String spellName = parts[1].toLowerCase();
+            if (client != null && client.clientId > 0) {
+                try {
+                    client.send(new SpawnSpellPickupRequest(client.clientId, spellName));
+                    console.print("spawned spell: " + spellName);
+                } catch (Exception e) {
+                    console.print("failed to send spawn spell request: " + e.getMessage());
+                }
+            } else {
+                console.print("cmd failed");
             }
             return;
         }

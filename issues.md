@@ -6,10 +6,10 @@
 - Issue 5: Cheat Console + Player health and damage system
 - Issue 6: Player death and respawn with Game loop with rounds and winner declaration
 - Issue 7: Basic spell casting
+- Issue 9: Inventory system
 
 ** Open Issues **
 - Issue 8: Collision detection
-- Issue 9: Inventory system
 - Issue 10: Basic UI & HUD
 - Issue 11: Power ups
 - Issue 12: Art assets for players, spells, arena, and UI elements

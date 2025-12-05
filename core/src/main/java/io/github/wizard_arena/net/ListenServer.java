@@ -35,8 +35,13 @@ public class ListenServer {
     private final List<SpawnPoint> spawnPoints;
     private final Random random = new Random();
 
-    private final Map<Integer, BaseSpell> playerSpells = new ConcurrentHashMap<>();
+    private static final int MAX_SPELL_SLOTS = 4;
+    private final Map<Integer, BaseSpell[]> playerSpellInventories = new ConcurrentHashMap<>();
     private final AtomicInteger nextProjectileId = new AtomicInteger(1);
+
+    private final List<SpellPickupState> spellPickups = Collections.synchronizedList(new ArrayList<>());
+    private final AtomicInteger nextPickupId = new AtomicInteger(1);
+    private static final float SPELL_PICKUP_RADIUS = 80f;
 
     private enum RoundState {
         WAITING,
@@ -172,7 +177,9 @@ public class ListenServer {
                 players.put(clientId, ps); // add to player states
 
                 // give player the starter spell
-                playerSpells.put(clientId, new StarterBallSpell());
+                BaseSpell[] inv = new BaseSpell[MAX_SPELL_SLOTS];
+                inv[0] = new StarterBallSpell(); // first slot
+                playerSpellInventories.put(clientId, inv);
 
                 // send JoinResponse
                 out.writeObject(new JoinResponse(true, null, clientId, serverStartTime));
@@ -207,22 +214,57 @@ public class ListenServer {
                                         p.blinkCooldown = BLINK_COOLDOWN;
                                     }
 
-                                    // spell casting
-                                    if(iu.castSpell){
-                                        BaseSpell spell = playerSpells.get(clientId);
-                                        if (spell != null && spell.canCast()){
-                                            int projectileId = nextProjectileId.getAndIncrement();
-                                            spell.spawnProjectile(projectiles, p, iu.aimX, iu.aimY, projectileId);
-                                            spell.onCast();
-                                            System.out.println("player " + clientId + " spawned projectile " + projectileId);
+                                    if (iu.selectedSpellSlot < 0) iu.selectedSpellSlot = 0; // clamp spell slot
+                                    if (iu.selectedSpellSlot >= MAX_SPELL_SLOTS) iu.selectedSpellSlot = MAX_SPELL_SLOTS - 1;
+                                    p.selectedSpellSlot = iu.selectedSpellSlot; // update selected spell slot
+
+                                    // spell pickup
+                                    if(iu.pickupSpell){
+                                        SpellPickupState picked = null;
+                                        float bestDistSq = SPELL_PICKUP_RADIUS * SPELL_PICKUP_RADIUS;
+                                        synchronized (spellPickups){
+                                            for (SpellPickupState sp : spellPickups){
+                                                float dx = sp.x - p.x;
+                                                float dy = sp.y - p.y;
+                                                float distSq = dx * dx + dy * dy;
+                                                if (distSq < bestDistSq){
+                                                    bestDistSq = distSq;
+                                                    picked = sp;
+                                                }
+                                            }
+
+                                            if (picked != null) {
+                                                // give spell to player
+                                                BaseSpell newSpell = createSpellFromType(picked.spellType);
+                                                if (newSpell != null) {
+                                                    // add spell to player's inventory and pass position for dropping old spell if needed
+                                                    giveSpellToPlayer(clientId, newSpell, picked.spellType, p.x, p.y);
+                                                    spellPickups.remove(picked);
+                                                    System.out.println("Player " + clientId + " picked up spell " + picked.spellType + " from pickup " + picked.id);
+                                                }
+                                            }
                                         }
                                     }
 
+                                    // spell casting
+                                    if(iu.castSpell){
+                                        BaseSpell[] inventory = playerSpellInventories.get(clientId);
+                                        if (inventory != null) {
+                                            BaseSpell spell = inventory[p.selectedSpellSlot];
+                                            if (spell != null && spell.canCast()) {
+                                                int projectileId = nextProjectileId.getAndIncrement();
+                                                spell.spawnProjectile(projectiles, p, iu.aimX, iu.aimY, projectileId);
+                                                spell.onCast();
+                                                System.out.println("player " + clientId + " spawned projectile " + projectileId + " from spell slot " + p.selectedSpellSlot);
+                                            }
+                                        }
+                                    }
                                     p.lastProcessedInput = iu.seq; // update last processed input seq
                                 }
                             } else if (obj instanceof Ping) {
                                 Ping ping = (Ping) obj;
                                 sendTo(c, new Pong(ping.clientTime, System.nanoTime()));
+
                             } else if (obj instanceof DamageRequest) {
                                 DamageRequest dr = (DamageRequest) obj;
                                 PlayerState p = players.get(dr.playerId);
@@ -247,7 +289,6 @@ public class ListenServer {
                                 }
                                 System.out.println("Player " + dr.playerId + " took " + dr.amount + " damage, HP = " + p.hp);
 
-
                             } else if (obj instanceof HealRequest) {
                                 HealRequest hr = (HealRequest) obj;
                                 PlayerState p = players.get(hr.playerId);
@@ -255,6 +296,7 @@ public class ListenServer {
                                 p.hp += hr.amount;
                                 if (p.hp > MAX_HP) p.hp = MAX_HP;
                                 System.out.println("Player " + hr.playerId + " healed " + hr.amount + ", HP = " + p.hp);
+
                             } else if (obj instanceof GodmodeRequest) {
                                 GodmodeRequest gr = (GodmodeRequest) obj;
                                 if (gr.enabled) {
@@ -264,6 +306,23 @@ public class ListenServer {
                                     godModePlayers.remove(gr.playerId);
                                     System.out.println("Player " + gr.playerId + " disabled god mode.");
                                 }
+
+                            } else if (obj instanceof SpawnSpellPickupRequest) {
+                                SpawnSpellPickupRequest spq = (SpawnSpellPickupRequest) obj;
+                                PlayerState p = players.get(spq.playerId);
+                                if (p != null) {
+                                    synchronized (spellPickups){
+                                        int pickupId = nextPickupId.getAndIncrement();
+                                        SpellPickupState sps = new SpellPickupState(
+                                                pickupId,
+                                                p.x,
+                                                p.y,
+                                                spq.spellType
+                                        );
+                                        spellPickups.add(sps);
+                                        System.out.println("Spawned spell pickup " + spq.spellType + " with ID " + pickupId + " at (" + p.x + "," + p.y + ") for player " + spq.playerId);
+                                    }
+                                }
                             }
                         }
                     } catch (IOException | ClassNotFoundException e) {
@@ -272,7 +331,7 @@ public class ListenServer {
                     } finally {
                         // cleanup on disconnect
                         players.remove(clientId);
-                        playerSpells.remove(clientId);
+                        playerSpellInventories.remove(clientId);
                         closeClient(clients.get(clientId));
                         clients.remove(clientId);
                         playerNames.remove(clientId);
@@ -323,10 +382,8 @@ public class ListenServer {
             // update round logic
             updateGame(dt);
 
-            // update spell cooldowns
-            for (BaseSpell spell : playerSpells.values()) {
-                spell.update(dt);
-            }
+            // update spells
+            updateSpells(dt);
 
             // TODO: update game state (projectiles, collisions, etc.)
             updateProjectiles(dt);
@@ -346,11 +403,17 @@ public class ListenServer {
             projectileStates = new ArrayList<>(projectiles); // copy projectiles
         }
 
+        List<SpellPickupState> pickupStates;
+        synchronized (spellPickups){
+            pickupStates = new ArrayList<>(spellPickups); // copy spell pickups
+        }
+
         Snapshot snapshot = new Snapshot();
         snapshot.tick = tick;
         snapshot.serverTime = System.nanoTime();
         snapshot.players = playerStates;
         snapshot.projectiles = projectileStates;
+        snapshot.spellPickups = pickupStates;
 
         snapshot.roundNumber = currentRound;
         snapshot.roundTimeRemaining = roundTimer;
@@ -529,6 +592,65 @@ public class ListenServer {
                     it.remove();
                 }
             }
+        }
+    }
+
+    private void updateSpells(float dt){
+        for (BaseSpell[] inv : playerSpellInventories.values()) {
+            for (BaseSpell spell : inv) {
+                if (spell != null) {
+                    spell.update(dt);
+                }
+            }
+        }
+    }
+
+    private void giveSpellToPlayer(int playerId, BaseSpell newSpell, String spellType, float dropX, float dropY){
+        BaseSpell[] inv = playerSpellInventories.get(playerId);
+        if (inv == null ) return;
+
+        // if empty slot, add spell there
+        for(int i = 0; i < MAX_SPELL_SLOTS; i++){
+            if (inv[i] == null) {
+                inv[i] = newSpell;
+                System.out.println("Gave spell to player " + playerId + " in slot " + i);
+                return;
+            }
+        }
+
+        // inventory full, replace currently selected slot and drop old spell
+        PlayerState ps = players.get(playerId);
+        int selected = (ps != null) ? ps.selectedSpellSlot : 0;
+        if (selected < 0 || selected >= MAX_SPELL_SLOTS) {
+            selected = 0; // clamp
+        }
+
+        BaseSpell oldSpell = inv[selected];
+        if (oldSpell != null) {
+            String oldSpellType = oldSpell.getTypeId();
+            synchronized (spellPickups) {
+                int pickupId = nextPickupId.getAndIncrement();
+                SpellPickupState sps = new SpellPickupState(
+                        pickupId,
+                        ps.x,
+                        ps.y,
+                        oldSpellType
+                );
+                spellPickups.add(sps);
+                System.out.println("dropped old spell pickup " + oldSpellType + " with ID " + pickupId + " at (" + ps.x + "," + ps.y + ") for player " + playerId);
+            }
+        }
+        inv[selected] = newSpell;
+        System.out.println("Replaced spell in slot " + selected + " for player " + playerId + " with " + newSpell);
+    }
+
+    private BaseSpell createSpellFromType(String spellType){
+        switch (spellType) {
+            case "starter":
+                return new StarterBallSpell();
+            default:
+                System.out.println("Unknown spell type: " + spellType);
+                return new StarterBallSpell(); // default spell if unknown
         }
     }
 

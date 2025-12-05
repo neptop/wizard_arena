@@ -59,6 +59,9 @@ public class Player extends Sprite {
     private boolean alive = true;
     private int roundsWon = 0;
 
+    // spell slots
+    private int selectedSpellSlot = 0;
+
     // cheats
     public boolean godMode = false;
 
@@ -138,6 +141,12 @@ public class Player extends Sprite {
             return; // skip movement and input sending when hud is open
         }
 
+        // spell slot hotkeys
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) selectedSpellSlot = 0;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) selectedSpellSlot = 1;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) selectedSpellSlot = 2;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) selectedSpellSlot = 3;
+
         // read inputs
         movement();
         blink(time);
@@ -168,6 +177,7 @@ public class Player extends Sprite {
         }
 
         boolean cast = Gdx.input.isButtonJustPressed(Buttons.LEFT);
+        boolean pickUpSpell = Gdx.input.isKeyJustPressed(Input.Keys.E);
 
         // send input to server
         if (client != null) {
@@ -179,11 +189,12 @@ public class Player extends Sprite {
             iu.seq = nextInputSeq++;
             iu.dt = time; // delta time since last input
 
-
             iu.aimX = aimX;
             iu.aimY = aimY;
             iu.castSpell = cast; // spell casting input
             iu.blink = canBlink; // blink ability input
+            iu.selectedSpellSlot = selectedSpellSlot;
+            iu.pickupSpell = pickUpSpell;
 
             pendingInputs.add(iu); // store input for client-side prediction
 
@@ -290,5 +301,9 @@ public class Player extends Sprite {
 
     public void setRoundsWon(int roundsWon) {
         this.roundsWon = roundsWon;
+    }
+
+    public int getSelectedSpellSlot() {
+        return selectedSpellSlot;
     }
 }

@@ -41,6 +41,8 @@ public class Messages {
         public float aimY;
         public boolean castSpell; // spell casting input
         public boolean blink; // blink ability input
+        public int selectedSpellSlot; // selected spell slot (0-3)
+        public boolean pickupSpell; // pickup spell input
     }
 
     // server to client on each snapshot
@@ -49,6 +51,7 @@ public class Messages {
         public long serverTime; // server timestamp
         public List<PlayerState> players;
         public List<ProjectileState> projectiles;
+        public List<SpellPickupState> spellPickups;
 
         public int roundNumber; // current round number
         public float roundTimeRemaining; // time remaining in the current round before sudden death
@@ -70,6 +73,7 @@ public class Messages {
         public float blinkCooldown; // time remaining for blink ability cooldown
         public boolean alive;
         public int roundsWon;
+        public int selectedSpellSlot;
         public PlayerState(int id, float x, float y, float hp) {
             this.id = id;
             this.x = x;
@@ -79,6 +83,7 @@ public class Messages {
             this.blinkCooldown = 0f;
             this.alive = true;
             this.roundsWon = 0;
+            this.selectedSpellSlot = 0;
         }
     }
 
@@ -91,6 +96,7 @@ public class Messages {
         public float vy;
         public int ownerId; // id of the player who cast the projectile
         public float maxLifetime; // maximum lifetime of the projectile in seconds // TEMP
+        public float damage;
         public ProjectileState() {}
         public ProjectileState(int id, float x, float y, float vx, float vy) {
             this.id = id;
@@ -100,8 +106,34 @@ public class Messages {
             this.vy = vy;
             this.ownerId = -1;
             this.maxLifetime = 0f; // TEMP
+            this.damage = 0f;
         }
     }
+
+    public static class SpellPickupState implements Msg {
+        public int id;
+        public float x;
+        public float y;
+        public String spellType;
+        public SpellPickupState() {}
+        public SpellPickupState(int id, float x, float y, String spellType) {
+            this.id = id;
+            this.x = x;
+            this.y = y;
+            this.spellType = spellType;
+        }
+    }
+
+    public static class SpawnSpellPickupRequest implements Msg {
+        public int playerId;
+        public String spellType;
+        public SpawnSpellPickupRequest() {}
+        public SpawnSpellPickupRequest(int playerId, String spellType) {
+            this.playerId = playerId;
+            this.spellType = spellType;
+        }
+    }
+
 
     // client to server ping message
     public static class Ping implements Msg {
