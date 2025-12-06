@@ -18,6 +18,7 @@ import io.github.wizard_arena.Tile;
 import io.github.wizard_arena.net.*;
 import io.github.wizard_arena.wizardGame;
 import io.github.wizard_arena.debug.CheatConsole;
+import org.w3c.dom.Text;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -83,6 +84,17 @@ public class PlayScreen extends ScreenAdapter {
         public float y;
     }
 
+    // powerup pickups
+    private Map<Integer, PowerupPickupRender> powerupPickupSprites = new HashMap<>();
+    private Texture speedPowerupTexture;
+    private Texture healPotionTexture;
+    private Texture overdriveTexture;
+    private static class PowerupPickupRender {
+        public float x;
+        public float y;
+        public String type;
+}
+
     // host constructor
     public PlayScreen(wizardGame game, ListenServer server, Client client) {
         this.game = game;
@@ -132,6 +144,10 @@ public class PlayScreen extends ScreenAdapter {
         floor = new Texture(Gdx.files.internal("floor_tile.png"));
         ballTexture = new Texture(Gdx.files.internal("ball.png"));
         spellScrollTexture = new Texture(Gdx.files.internal("ball.png")); // TODO: TEMP
+        speedPowerupTexture = new Texture(Gdx.files.internal("speed_powerup.png"));
+        healPotionTexture = new Texture(Gdx.files.internal("health_potion.png"));
+        overdriveTexture = new Texture(Gdx.files.internal("overdrive.png"));
+
         FileHandle file;
         file = Gdx.files.internal("map1.txt");
         String text = file.readString();
@@ -292,6 +308,23 @@ public class PlayScreen extends ScreenAdapter {
                 }
                 // remove pickups that aren't in the snapshot anymore
                 spellPickupSprites.entrySet().removeIf(e -> !updatedPickupIds.contains(e.getKey()));
+
+                // process powerup pickups
+                Set<Integer> updatedPowerupIds = new HashSet<>();
+                if (s.powerups != null) {
+                    for (PowerupState pp : s.powerups) {
+                        updatedPowerupIds.add(pp.id);
+                        PowerupPickupRender ppr = powerupPickupSprites.get(pp.id);
+                        if (ppr == null) {
+                            ppr = new PowerupPickupRender();
+                            powerupPickupSprites.put(pp.id, ppr);
+                        }
+                        ppr.x = pp.x;
+                        ppr.y = pp.y;
+                        ppr.type = pp.powerupType;
+                    }
+                }
+                powerupPickupSprites.entrySet().removeIf(e -> !updatedPowerupIds.contains(e.getKey()));
             }
         }
 
@@ -331,6 +364,30 @@ public class PlayScreen extends ScreenAdapter {
         // draw spell pickups
         for (SpellPickupRender spr : spellPickupSprites.values()) {
             game.batch.draw(spellScrollTexture, spr.x, spr.y);
+        }
+
+        // draw powerup pickups
+        for (PowerupPickupRender ppr : powerupPickupSprites.values()) {
+            Texture tex = null;
+            if (ppr.type == null) {
+                tex = speedPowerupTexture; // default
+            } else {
+                switch (ppr.type) {
+                    case "speed":
+                        tex = speedPowerupTexture;
+                        break;
+                    case "health":
+                        tex = healPotionTexture;
+                        break;
+                    case "overdrive":
+                        tex = overdriveTexture;
+                        break;
+                    default:
+                        tex = speedPowerupTexture; // default
+                        break;
+                }
+            }
+            game.batch.draw(tex, ppr.x, ppr.y);
         }
 
         game.batch.end();
@@ -464,6 +521,7 @@ public class PlayScreen extends ScreenAdapter {
             console.print("die - instantly die");
             console.print("killall - instantly kill all other players (should end round as a draw)");
             console.print("spawnspell <name> - spawn a spell of the given name at the player's position");
+            console.print("spawnpowerup <name> - spawn a powerup of the given name at the player's position");
             return;
         }
 
@@ -582,6 +640,28 @@ public class PlayScreen extends ScreenAdapter {
             }
             return;
         }
+
+        // spawn powerup
+        if (lower.startsWith("spawnpowerup ")) {
+            String[] parts = line.split("\\s+");
+            if (parts.length < 2) {
+                console.print("usage: spawnpowerup <name>");
+                return;
+            }
+            String powerupName = parts[1].toLowerCase();
+            if (client != null && client.clientId > 0) {
+                try {
+                    client.send(new SpawnPowerupRequest(client.clientId, powerupName));
+                    console.print("spawned powerup: " + powerupName);
+                } catch (Exception e) {
+                    console.print("failed to send spawn powerup request: " + e.getMessage());
+                }
+            } else {
+                console.print("cmd failed");
+            }
+            return;
+        }
+
         console.print("unknown command: " + line);
     }
 }

@@ -52,6 +52,7 @@ public class Messages {
         public List<PlayerState> players;
         public List<ProjectileState> projectiles;
         public List<SpellPickupState> spellPickups;
+        public List<PowerupState> powerups;
 
         public int roundNumber; // current round number
         public float roundTimeRemaining; // time remaining in the current round before sudden death
@@ -74,6 +75,10 @@ public class Messages {
         public boolean alive;
         public int roundsWon;
         public int selectedSpellSlot;
+        public float speedMultiplier;
+        public float speedBoostDuration;
+        public float overdriveDuration;
+
         public PlayerState(int id, float x, float y, float hp) {
             this.id = id;
             this.x = x;
@@ -84,6 +89,8 @@ public class Messages {
             this.alive = true;
             this.roundsWon = 0;
             this.selectedSpellSlot = 0;
+            this.speedMultiplier = 1.0f;
+            this.overdriveDuration = 0f;
         }
     }
 
@@ -124,6 +131,20 @@ public class Messages {
         }
     }
 
+    public static class PowerupState implements Msg {
+        public int id;
+        public float x;
+        public float y;
+        public String powerupType;
+        public PowerupState() {}
+        public PowerupState(int id, float x, float y, String powerupType) {
+            this.id = id;
+            this.x = x;
+            this.y = y;
+            this.powerupType = powerupType;
+        }
+    }
+
     public static class SpawnSpellPickupRequest implements Msg {
         public int playerId;
         public String spellType;
@@ -131,6 +152,16 @@ public class Messages {
         public SpawnSpellPickupRequest(int playerId, String spellType) {
             this.playerId = playerId;
             this.spellType = spellType;
+        }
+    }
+
+    public static class SpawnPowerupRequest implements Msg {
+        public int playerId;
+        public String powerupType;
+        public SpawnPowerupRequest() {}
+        public SpawnPowerupRequest(int playerId, String powerupType) {
+            this.playerId = playerId;
+            this.powerupType = powerupType;
         }
     }
 

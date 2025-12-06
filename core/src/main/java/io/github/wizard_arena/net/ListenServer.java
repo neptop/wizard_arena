@@ -43,6 +43,16 @@ public class ListenServer {
     private final AtomicInteger nextPickupId = new AtomicInteger(1);
     private static final float SPELL_PICKUP_RADIUS = 80f;
 
+    private final List<PowerupState> powerups = Collections.synchronizedList(new ArrayList<>());
+    private final AtomicInteger nextPowerupId = new AtomicInteger(1);
+    private static final float POWERUP_PICKUP_RADIUS = 64f;
+
+    private volatile boolean debugMode = false;
+
+    public void setDebugMode(boolean debugMode) {
+        this.debugMode = debugMode;
+    }
+
     private enum RoundState {
         WAITING,
         IN_PROGRESS,
@@ -174,6 +184,9 @@ public class ListenServer {
                 ps.blinkCooldown = 0f;
                 ps.alive = true;
                 ps.roundsWon = winCount.getOrDefault(clientId, 0); // retrieve previous wins
+                ps.speedMultiplier = 1.0f;
+                ps.speedBoostDuration = 0f;
+                ps.overdriveDuration = 0f;
                 players.put(clientId, ps); // add to player states
 
                 // give player the starter spell
@@ -198,7 +211,8 @@ public class ListenServer {
 
                                 PlayerState p = players.get(clientId);
                                 if (p != null) {
-                                    float speed = 300f;
+                                    float baseSpeed = 300f;
+                                    float speed = baseSpeed * p.speedMultiplier;
                                     float dt = iu.dt;
 
                                     // movement
@@ -251,14 +265,40 @@ public class ListenServer {
                                         BaseSpell[] inventory = playerSpellInventories.get(clientId);
                                         if (inventory != null) {
                                             BaseSpell spell = inventory[p.selectedSpellSlot];
-                                            if (spell != null && spell.canCast()) {
-                                                int projectileId = nextProjectileId.getAndIncrement();
-                                                spell.spawnProjectile(projectiles, p, iu.aimX, iu.aimY, projectileId);
-                                                spell.onCast();
-                                                System.out.println("player " + clientId + " spawned projectile " + projectileId + " from spell slot " + p.selectedSpellSlot);
+                                            if (spell != null) {
+                                                boolean overdrive = (p.overdriveDuration > 0f);
+                                                if (overdrive || spell.canCast()) {
+                                                    int projectileId = nextProjectileId.getAndIncrement();
+                                                    spell.spawnProjectile(projectiles, p, iu.aimX, iu.aimY, projectileId);
+                                                    if (!overdrive) {
+                                                        spell.onCast(); // start cooldown if overdrive powerup not active
+                                                    }
+                                                    System.out.println("player " + clientId + " spawned projectile " + projectileId + " from spell slot " + p.selectedSpellSlot);
+                                                }
                                             }
                                         }
                                     }
+
+                                    // powerup pickup
+                                    PowerupState pickedPowerup = null;
+                                    float bestPowerupDistSq = POWERUP_PICKUP_RADIUS * POWERUP_PICKUP_RADIUS;
+                                    synchronized (powerups) {
+                                        for (PowerupState pu : powerups) {
+                                            float dx = pu.x - p.x;
+                                            float dy = pu.y - p.y;
+                                            float distSq = dx * dx + dy * dy;
+                                            if (distSq < bestPowerupDistSq) {
+                                                bestPowerupDistSq = distSq;
+                                                pickedPowerup = pu;
+                                            }
+                                        }
+                                        if (pickedPowerup != null) {
+                                            applyPowerup(p, pickedPowerup.powerupType);
+                                            powerups.remove(pickedPowerup);
+                                            System.out.println("Player " + clientId + " picked up powerup " + pickedPowerup.powerupType + " from pickup " + pickedPowerup.id);
+                                        }
+                                    }
+
                                     p.lastProcessedInput = iu.seq; // update last processed input seq
                                 }
                             } else if (obj instanceof Ping) {
@@ -320,7 +360,26 @@ public class ListenServer {
                                                 spq.spellType
                                         );
                                         spellPickups.add(sps);
-                                        System.out.println("Spawned spell pickup " + spq.spellType + " with ID " + pickupId + " at (" + p.x + "," + p.y + ") for player " + spq.playerId);
+                                        System.out.println("Spawned spell pickup " + spq.spellType + " with ID " + pickupId);
+                                    }
+                                }
+                            } else if (obj instanceof SpawnPowerupRequest) {
+                                SpawnPowerupRequest spuq = (SpawnPowerupRequest) obj;
+                                PlayerState p = players.get(spuq.playerId);
+                                if(p != null) {
+                                    float spawnOffset = 64f;
+                                    float spawnX = p.x + spawnOffset;
+                                    float spawnY = p.y;
+                                    synchronized (powerups){
+                                        int pickupId = nextPowerupId.getAndIncrement();
+                                        PowerupState pus = new PowerupState(
+                                                pickupId,
+                                                spawnX,
+                                                spawnY,
+                                                spuq.powerupType
+                                        );
+                                        powerups.add(pus);
+                                        System.out.println("Spawned powerup pickup " + spuq.powerupType + " with ID " + pickupId + " at (" + spawnX + "," + spawnY + ") for player " + spuq.playerId);
                                     }
                                 }
                             }
@@ -382,10 +441,13 @@ public class ListenServer {
             // update round logic
             updateGame(dt);
 
+            // update powerup timers
+            updatePowerupTimers(dt);
+
             // update spells
             updateSpells(dt);
 
-            // TODO: update game state (projectiles, collisions, etc.)
+            // update projectiles
             updateProjectiles(dt);
 
             snapshotAccumulator += 1.0;
@@ -408,12 +470,18 @@ public class ListenServer {
             pickupStates = new ArrayList<>(spellPickups); // copy spell pickups
         }
 
+        List<PowerupState> powerupStates;
+        synchronized (powerups){
+            powerupStates = new ArrayList<>(powerups); // copy powerups
+        }
+
         Snapshot snapshot = new Snapshot();
         snapshot.tick = tick;
         snapshot.serverTime = System.nanoTime();
         snapshot.players = playerStates;
         snapshot.projectiles = projectileStates;
         snapshot.spellPickups = pickupStates;
+        snapshot.powerups = powerupStates;
 
         snapshot.roundNumber = currentRound;
         snapshot.roundTimeRemaining = roundTimer;
@@ -540,6 +608,13 @@ public class ListenServer {
 
     // update game logic per tick
     private void updateGame(float dt) {
+        if (debugMode) {
+            if (currentRoundState == RoundState.WAITING) {
+                startNewRound();
+            }
+            return; // skip round logic in debug mode
+        }
+
         switch(currentRoundState){
             case WAITING:
                 // TODO: check if enough players to start
@@ -651,6 +726,54 @@ public class ListenServer {
             default:
                 System.out.println("Unknown spell type: " + spellType);
                 return new StarterBallSpell(); // default spell if unknown
+        }
+    }
+
+    private void updatePowerupTimers(float dt) {
+        for (PlayerState p : players.values()){
+
+            // speed boost timer
+            if (p.speedBoostDuration > 0f) {
+                p.speedBoostDuration -= dt;
+                if (p.speedBoostDuration <= 0f) {
+                    p.speedMultiplier = 1.0f; // reset speed
+                    p.speedBoostDuration = 0f;
+                    System.out.println("Player " + p.id + " speed boost ended.");
+                }
+            }
+
+            if (p.overdriveDuration > 0f) {
+                p.overdriveDuration -= dt;
+                if (p.overdriveDuration <= 0f) {
+                    p.overdriveDuration = 0f;
+                    System.out.println("Player " + p.id + " overdrive ended.");
+                }
+            }
+        }
+    }
+
+    private void applyPowerup(PlayerState p, String powerupType) {
+        switch (powerupType) {
+            case "speed":
+                p.speedMultiplier = 1.5f; // 50% speed boost
+                p.speedBoostDuration = 5.0f; // 5 secs
+                System.out.println("Player " + p.id + " speed boost applied");
+                break;
+
+            case "overdrive":
+                p.overdriveDuration = 5.0f; // 5 secs
+                System.out.println("Player " + p.id + " overdrive applied");
+                break;
+
+            case "health":
+                float prevHp = p.hp;
+                p.hp = MAX_HP;
+                System.out.println("Player " + p.id + " health restored from " + prevHp + " to " + p.hp);
+                break;
+
+            default:
+                System.out.println("Unknown powerup type: " + powerupType);
+                break;
         }
     }
 

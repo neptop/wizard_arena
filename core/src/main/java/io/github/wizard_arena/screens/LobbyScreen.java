@@ -1,5 +1,8 @@
 package io.github.wizard_arena.screens;
 
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.List;
+import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import io.github.wizard_arena.net.Messages;
 import io.github.wizard_arena.net.Client;
 import io.github.wizard_arena.net.ListenServer;
@@ -20,6 +23,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
 import io.github.wizard_arena.net.NetConfig;
 import io.github.wizard_arena.wizardGame;
 
@@ -44,6 +48,9 @@ public class LobbyScreen extends ScreenAdapter {
     private Label ipLabel; // label to show lobby IP
     private String currentLobbyIP; // lobby IP with port
     private String rawHostIP; // raw IP without port
+
+    // debug flag
+    private CheckBox debugCheckbox;
 
     public LobbyScreen(wizardGame game, ListenServer server, Client client, String playerName, boolean isHost) {
         this.game = game;
@@ -154,8 +161,10 @@ public class LobbyScreen extends ScreenAdapter {
             TextButton startButton = new TextButton("Start Game", skin);
             startButton.addListener(new ClickListener() {
                 @Override
-                public void clicked(InputEvent event, float x, float y) {
+                public void clicked(InputEvent event, float x, float y){
                     if (server != null) {
+                        //
+                        server.setDebugMode(debugCheckbox != null && debugCheckbox.isChecked());
                         server.sendStartGame();
                     }
                 }
@@ -170,6 +179,14 @@ public class LobbyScreen extends ScreenAdapter {
         // assemble right panel
         rightPanel.top().right();
         rightPanel.add(topBar).growX().top().row();
+
+        // debug checkbox (only for host)
+        if (isHost) {
+            debugCheckbox = new CheckBox(" Enable Debug Mode", skin);
+            debugCheckbox.left();
+            rightPanel.add(debugCheckbox).right().padTop(10f).row();
+        }
+
         rightPanel.add().expand().row(); // spacer
         rightPanel.add(bottomBar).growX().bottom().row();
 
@@ -246,7 +263,7 @@ public class LobbyScreen extends ScreenAdapter {
 
     // helpers
     private Texture makeWhiteTexture() {
-        Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        Pixmap pixmap = new Pixmap(16, 16, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.WHITE);
         pixmap.fill();
         Texture texture = new Texture(pixmap);
@@ -303,6 +320,14 @@ public class LobbyScreen extends ScreenAdapter {
         scrollPaneStyle.vScroll = null; // no scroll bar for now, may add later
         scrollPaneStyle.vScrollKnob = null;
         skin.add("default", scrollPaneStyle);
+
+        // checkbox style
+        CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
+        checkBoxStyle.checkboxOff = new TextureRegionDrawable(new TextureRegion(white)).tint(new Color(0.15f, 0.15f, 0.15f, 1f));
+        checkBoxStyle.checkboxOn = new TextureRegionDrawable(new TextureRegion(white)).tint(new Color(0.3f, 0.7f, 0.25f, 1f));
+        checkBoxStyle.font = font;
+        checkBoxStyle.fontColor = Color.WHITE;
+        skin.add("default", checkBoxStyle);
 
         // default background
         skin.add("default-bg", bg);
