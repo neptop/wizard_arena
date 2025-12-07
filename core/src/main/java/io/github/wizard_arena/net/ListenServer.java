@@ -447,6 +447,9 @@ public class ListenServer {
             // update spells
             updateSpells(dt);
 
+            // update status effects
+            updateStatusEffects(dt);
+
             // update projectiles
             updateProjectiles(dt);
 
@@ -723,10 +726,116 @@ public class ListenServer {
         switch (spellType) {
             case "starter":
                 return new StarterBallSpell();
+            case "poison":
+                return new PoisonBallSpell();
+            case "fire":
+                return new FireBallSpell();
+            case "lightning":
+                return new LightningBallSpell();
             default:
                 System.out.println("Unknown spell type: " + spellType);
                 return new StarterBallSpell(); // default spell if unknown
         }
+    }
+
+    private void applyPoisonDebuff(PlayerState p) {
+        if (p.burnDuration > 0f || p.combinedDotDuration > 0f) {
+            p.poisonDuration = 0f; // cancel poison if burn or combined DOT active
+            p.burnDuration = 0f; // cancel burn
+            p.combinedDotDuration = 5.0f; // apply combined DOT for 5 secs
+            System.out.println("player " + p.id + " combined DOT applied");
+        } else {
+            p.poisonDuration = 5.0f; // apply poison for 5 secs
+            System.out.println("player " + p.id + "is poisoned");
+        }
+    }
+
+    private void applyBurnDebuff(PlayerState p) {
+        if (p.poisonDuration > 0f || p.combinedDotDuration > 0f) {
+            p.burnDuration = 0f; // cancel burn if poison or combined DOT active
+            p.poisonDuration = 0f; // cancel poison
+            p.combinedDotDuration = 5.0f; // apply combined DOT for 5 secs
+            System.out.println("player " + p.id + " combined DOT applied");
+        } else {
+            p.burnDuration = 5.0f; // apply burn for 5 secs
+            System.out.println("player " + p.id + "is burned");
+        }
+    }
+
+    private void updateStatusEffects(float dt) {
+        for (PlayerState p : players.values()) {
+            if (!p.alive) continue;
+
+            // decrease durations
+            if (p.poisonDuration > 0f) {
+                p.poisonDuration -= dt;
+                if (p.poisonDuration <= 0f) {
+                    p.poisonDuration = 0f;
+                }
+
+                if (p.burnDuration > 0f) {
+                    p.burnDuration -= dt;
+                    if (p.burnDuration <= 0f) {
+                        p.burnDuration = 0f;
+                    }
+                }
+
+                if (p.combinedDotDuration > 0f) {
+                    p.combinedDotDuration -= dt;
+                    if (p.combinedDotDuration <= 0f) {
+                        p.combinedDotDuration = 0f;
+                    }
+                }
+
+                // accumulate tick timer until 1 second
+                p.dotTickTimer += dt;
+                if (p.dotTickTimer >= 1.0f) {
+                    p.dotTickTimer -= 1.0f;
+                    float dmgThisTick = 0; // damage per second
+
+                    if (p.combinedDotDuration > 0f) {
+                        dmgThisTick = 12f;
+                    } else {
+                        if (p.poisonDuration > 0f) {
+                            dmgThisTick += 5f;
+                        }
+                        if (p.burnDuration > 0f) {
+                            dmgThisTick += 4f;
+                        }
+                    }
+                    if (dmgThisTick > 0f) {
+                        damagePlayer(p.id, dmgThisTick);
+                        System.out.println("player " + p.id + " took " + dmgThisTick + " DOT damage");
+                    }
+                }
+            }
+        }
+    }
+
+    // server side damage application
+    private void damagePlayer(int playerId, float amount) {
+        PlayerState p = players.get(playerId);
+        if (p == null) return;
+
+        if (amount > 0 && godModePlayers.contains(playerId)) {
+            // ignore damage in god mode
+            return;
+        }
+
+        float prevHp = p.hp;
+        p.hp -= amount;
+        if (p.hp < 0f) p.hp = 0f;
+        if (p.hp > MAX_HP) p.hp = MAX_HP;
+
+        // death handling
+        if (prevHp > 0f && p.hp <= 0f) {
+            p.alive = false;
+            System.out.println("Player " + playerId + " is dead");
+            if (currentRoundState == RoundState.IN_PROGRESS) {
+                checkPlayersAlive();
+            }
+        }
+        System.out.println("Player " + playerId + " took " + amount + " damage, HP = " + p.hp);
     }
 
     private void updatePowerupTimers(float dt) {

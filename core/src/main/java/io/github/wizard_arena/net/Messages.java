@@ -79,6 +79,12 @@ public class Messages {
         public float speedBoostDuration;
         public float overdriveDuration;
 
+        // debuff/ DOT tracking
+        public float poisonDuration;
+        public float burnDuration;
+        public float combinedDotDuration;
+        public float dotTickTimer;
+
         public PlayerState(int id, float x, float y, float hp) {
             this.id = id;
             this.x = x;
@@ -91,6 +97,12 @@ public class Messages {
             this.selectedSpellSlot = 0;
             this.speedMultiplier = 1.0f;
             this.overdriveDuration = 0f;
+
+            // debuffs
+            this.poisonDuration = 0f;
+            this.burnDuration = 0f;
+            this.combinedDotDuration = 0f;
+            this.dotTickTimer = 0f;
         }
     }
 
@@ -104,6 +116,8 @@ public class Messages {
         public int ownerId; // id of the player who cast the projectile
         public float maxLifetime; // maximum lifetime of the projectile in seconds // TEMP
         public float damage;
+        public String spellType;
+
         public ProjectileState() {}
         public ProjectileState(int id, float x, float y, float vx, float vy) {
             this.id = id;
@@ -114,6 +128,7 @@ public class Messages {
             this.ownerId = -1;
             this.maxLifetime = 0f; // TEMP
             this.damage = 0f;
+            this.spellType = "";
         }
     }
 

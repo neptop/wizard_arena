@@ -53,6 +53,7 @@ public class StarterBallSpell extends BaseSpell {
         proj.ownerId = caster.id;
         proj.maxLifetime = MAX_LIFETIME;
         proj.damage = getDamage();
+        proj.spellType = getTypeId();
         projectiles.add(proj);
     }
 }

@@ -69,11 +69,15 @@ public class PlayScreen extends ScreenAdapter {
 
     // spell projectiles
     private Map<Integer, ProjectileRender> projectileSprites = new HashMap<>();
-    private Texture ballTexture;
+    private Texture starterBallTexture;
+    private Texture poisonBallTexture;
+    private Texture fireBallTexture;
+    private Texture lightningBallTexture;
 
     private static class ProjectileRender {
         public float x;
         public float y;
+        public String spellType;
     }
 
     // spell pickups
@@ -142,8 +146,16 @@ public class PlayScreen extends ScreenAdapter {
 
         wall = new Texture(Gdx.files.internal("wall_tile.png"));
         floor = new Texture(Gdx.files.internal("floor_tile.png"));
-        ballTexture = new Texture(Gdx.files.internal("ball.png"));
+
+        // spell projectile textures
+        starterBallTexture = new Texture(Gdx.files.internal("ball.png"));
+        poisonBallTexture = new Texture(Gdx.files.internal("poison_ball.png"));
+        fireBallTexture = new Texture(Gdx.files.internal("ball.png"));
+        lightningBallTexture = new Texture(Gdx.files.internal("lightning_ball.png"));
+
         spellScrollTexture = new Texture(Gdx.files.internal("ball.png")); // TODO: TEMP
+
+        // powerup textures
         speedPowerupTexture = new Texture(Gdx.files.internal("speed_powerup.png"));
         healPotionTexture = new Texture(Gdx.files.internal("health_potion.png"));
         overdriveTexture = new Texture(Gdx.files.internal("overdrive.png"));
@@ -287,6 +299,7 @@ public class PlayScreen extends ScreenAdapter {
                         }
                         pr.x = ps.x;
                         pr.y = ps.y;
+                        pr.spellType = ps.spellType;
                     }
                 }
                 // remove projectiles that aren't in the snapshot anymore
@@ -358,7 +371,29 @@ public class PlayScreen extends ScreenAdapter {
 
         // draw projectiles
         for (ProjectileRender pr : projectileSprites.values()) {
-            game.batch.draw(ballTexture, pr.x, pr.y);
+            Texture projectileTexture = null;
+            if (pr == null) {
+                projectileTexture = starterBallTexture; // default
+            } else {
+                switch (pr.spellType) {
+                    case "starter":
+                        projectileTexture = starterBallTexture;
+                        break;
+                    case "poison":
+                        projectileTexture = poisonBallTexture;
+                        break;
+                    case "fire":
+                        projectileTexture = fireBallTexture;
+                        break;
+                    case "lightning":
+                        projectileTexture = lightningBallTexture;
+                        break;
+                    default:
+                        projectileTexture = starterBallTexture; // default
+                        break;
+                }
+            }
+            game.batch.draw(projectileTexture, pr.x, pr.y);
         }
 
         // draw spell pickups
