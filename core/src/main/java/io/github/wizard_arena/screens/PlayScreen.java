@@ -3,16 +3,15 @@ package io.github.wizard_arena.screens;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
-import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
+import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 import io.github.wizard_arena.Player;
 import io.github.wizard_arena.Tile;
 import io.github.wizard_arena.net.*;
@@ -51,6 +50,7 @@ public class PlayScreen extends ScreenAdapter {
 
     //  camera setup
     private OrthographicCamera camera;
+    private OrthographicCamera hudCamera;
 
     // cheat console
     private CheatConsole console;
@@ -66,6 +66,10 @@ public class PlayScreen extends ScreenAdapter {
     // ui stuff
     private BitmapFont font;
     private ShapeRenderer shapeRenderer;
+    private Viewport hudViewport;
+    private SpriteBatch hudBatch;
+    Texture roundWinEmpty;
+    Texture roundWinFull;
 
     // spell projectiles
     private Map<Integer, ProjectileRender> projectileSprites = new HashMap<>();
@@ -144,6 +148,13 @@ public class PlayScreen extends ScreenAdapter {
         camera = new OrthographicCamera();
         camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
+        // setup a separate camera for hud elements
+        hudCamera = new OrthographicCamera();
+        hudCamera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+
+        hudViewport = new ScreenViewport(hudCamera);
+        hudBatch = new SpriteBatch();
+
         wall = new Texture(Gdx.files.internal("wall_tile.png"));
         floor = new Texture(Gdx.files.internal("floor_tile.png"));
 
@@ -205,6 +216,16 @@ public class PlayScreen extends ScreenAdapter {
         // setup ui
         font = new BitmapFont();
         shapeRenderer = new ShapeRenderer();
+        roundWinEmpty = new Texture(Gdx.files.internal("round_win_empty.png"));
+        roundWinFull = new Texture(Gdx.files.internal("round_win_full.png"));
+
+        // setup custom cursor / crosshair
+        Pixmap pixmap = new Pixmap(Gdx.files.internal("crosshair.png"));
+        int cursorX = pixmap.getWidth() / 2;
+        int cursorY = pixmap.getHeight() / 2;
+        Cursor cursor = Gdx.graphics.newCursor(pixmap, cursorX, cursorY);
+        Gdx.graphics.setCursor(cursor);
+        pixmap.dispose();
     }
 
     @Override
@@ -263,12 +284,16 @@ public class PlayScreen extends ScreenAdapter {
                         // this is the local player, so apply server reconciliation
                         p.applyServerState(ps.x, ps.y, ps.lastProcessedInput);
                         p.setHealth(ps.hp); // update health
+                        p.hudHealthBar.setHealthRatio(ps.hp, p.maxHealth); // update health bar
+                        p.playerHealthBar.setHealthRatio(ps.hp, p.maxHealth);
                         p.setAlive(ps.alive);
                         p.setRoundsWon(ps.roundsWon);
                     } else {
                         // remote player, directly set position
                         p.startInter(ps.x, ps.y);
                         p.setHealth(ps.hp); // update health
+                        p.hudHealthBar.setHealthRatio(ps.hp, p.maxHealth); // update health bar
+                        p.playerHealthBar.setHealthRatio(ps.hp, p.maxHealth);
                         p.setAlive(ps.alive);
                         p.setRoundsWon(ps.roundsWon);
                     }
@@ -367,6 +392,9 @@ public class PlayScreen extends ScreenAdapter {
         for (Player p : playerSprites.values()) {
             if(!p.isAlive()) continue;
             p.draw(game.batch);
+
+            // draw each players' health bar under them
+            p.playerHealthBar.draw(game.batch, 1);
         }
 
         // draw projectiles
@@ -427,6 +455,23 @@ public class PlayScreen extends ScreenAdapter {
 
         game.batch.end();
 
+        // draw ui stuff over tiles + players
+        hudBatch.setProjectionMatrix(hudCamera.combined);
+        hudBatch.begin();
+
+        player.hudHealthBar.draw(hudBatch, 1);
+
+        // draw the rounds won indicators
+        int numRounds = player.getRoundsWon();
+        for (int i = 0; i < 5; i++){
+            if (numRounds > i) {
+                hudBatch.draw(roundWinFull, i * 72, 32);
+            } else {
+                hudBatch.draw(roundWinEmpty, i * 72, 32);
+            }
+        }
+
+        hudBatch.end();
         // render the between round overlay
         if (roundState == 2 || roundState == 3) {
             drawRoundOverlay();

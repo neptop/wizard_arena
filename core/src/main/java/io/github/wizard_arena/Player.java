@@ -12,6 +12,7 @@ import com.badlogic.gdx.math.Vector3;
 import io.github.wizard_arena.net.Client;
 import io.github.wizard_arena.net.Messages;
 import io.github.wizard_arena.net.NetConfig;
+import io.github.wizard_arena.HealthBar;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -56,6 +57,12 @@ public class Player extends Sprite {
     public float health = 100f;
     public float maxHealth = 100f;
 
+    // ui
+    public HealthBar hudHealthBar;
+    public HealthBar playerHealthBar;
+    Texture roundWonEmpty;
+    Texture roundWonFull;
+
     // status
     private boolean alive = true;
     private int roundsWon = 0;
@@ -84,8 +91,15 @@ public class Player extends Sprite {
 
         this.maxHealth = 100f;
         this.health = maxHealth;
+<<<<<<< HEAD
         this.map = map;
         this.bounds = new Rectangle(spawnX, spawnY, playerSize, playerSize);
+=======
+        createHealthBars();
+
+        this.roundWonEmpty = new Texture(Gdx.files.internal("round_win_empty.png"));
+        this.roundWonFull = new Texture(Gdx.files.internal("round_win_full.png"));
+>>>>>>> 17b05df (Healthbars for self UI and other players. Custom crosshair and round win indicators.)
     }
 
     public void checkCollision(float dx, float dy, int tileSize) {
@@ -288,6 +302,10 @@ public class Player extends Sprite {
         float aimX = 0f;
         float aimY = 0f;
 
+        // set position of your own health bar
+        // wanted to hide self hp bar but commenting this out broke it so it's just set to offscreen
+        playerHealthBar.setPosition(getX(), getY() - 1024);
+
         if (camera != null) {
             Vector3 mouse = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f); // mouse position in screen coords
             camera.unproject(mouse); // convert to world coords
@@ -398,6 +416,14 @@ public class Player extends Sprite {
         float newY = interpStartY + (interpTargetY - interpStartY) * interpT;
         setX(newX);
         setY(newY);
+
+        // update remote health bars
+        playerHealthBar.setPosition(getX(), getY() - 32);
+    }
+
+    private void createHealthBars(){
+        this.hudHealthBar = new HealthBar(120, Gdx.graphics.getHeight() - 96, 408, 64);
+        this.playerHealthBar = new HealthBar(getX(), getY() - 32, 64, 16);
     }
 
     public void setGodMode(boolean godMode) {
