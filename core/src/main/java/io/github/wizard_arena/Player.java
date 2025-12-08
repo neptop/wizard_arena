@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 import io.github.wizard_arena.net.Client;
 import io.github.wizard_arena.net.Messages;
@@ -65,8 +66,13 @@ public class Player extends Sprite {
     // cheats
     public boolean godMode = false;
 
+    //  collision detection
+    public Tile[][] map;
+    public int tileSize = 64;
+    public Rectangle bounds;
+    public int playerSize = 48;
 
-    public Player(wizardGame game, float speed, Client client, int spawnX, int spawnY) {
+    public Player(wizardGame game, float speed, Client client, int spawnX, int spawnY, Tile[][] map) {
         super(game.assets.get("red_wizard.png", Texture.class));
         this.speed = speed;
         blinkTimer = 0f;
@@ -78,29 +84,82 @@ public class Player extends Sprite {
 
         this.maxHealth = 100f;
         this.health = maxHealth;
+        this.map = map;
+        this.bounds = new Rectangle(spawnX, spawnY, playerSize, playerSize);
+    }
+    
+    public void checkCollision(float dx, float dy, int tileSize) {
+        float centerX = getX() + tileSize / 2f;
+        float centerY = getY() + tileSize / 2f;
+
+        // Horizontal movement
+        if (dx != 0) {
+            float newCenterX = centerX + dx * (playerSize / 4f);
+            float newX = newCenterX - playerSize / 2f;
+            float newY = centerY - playerSize / 2f;
+
+            Rectangle testBounds = new Rectangle(newX, newY, playerSize, playerSize);
+            int nextTileX = (int)((testBounds.x + tileSize/2f) / tileSize);
+            int tileY = (int)((testBounds.y + tileSize/2f) / tileSize);
+
+            if (isColliding(testBounds, nextTileX, tileY)) {
+                xVelocity = 0;
+            } else {
+                xVelocity = dx;
+            }
+        } else {
+            xVelocity = 0;
+        }
+
+        // Vertical movement
+        if (dy != 0) {
+            float newCenterY = centerY + dy * (playerSize / 4f);
+            float newX = centerX - playerSize / 2f;
+            float newY = newCenterY - playerSize / 2f;
+
+            Rectangle testBounds = new Rectangle(newX, newY, playerSize, playerSize);
+            int tileX = (int)((testBounds.x + tileSize/2f) / tileSize);
+            int nextTileY = (int)((testBounds.y + tileSize/2f) / tileSize);
+
+            if (isColliding(testBounds, tileX, nextTileY)) {
+                yVelocity = 0;
+            } else {
+                yVelocity = dy;
+            }
+        } else {
+            yVelocity = 0;
+        }
     }
 
+    private boolean isColliding(Rectangle testBounds, int tileX, int tileY) {
+        // Check current and adjacent tiles
+        for (int y = tileY - 1; y <= tileY + 1; y++) {
+            for (int x = tileX - 1; x <= tileX + 1; x++) {
+                if (x >= 0 && x < map[0].length && y >= 0 && y < map.length) {
+                    if (!map[y][x].navigable && testBounds.overlaps(map[y][x].bounds)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
     public void movement() {
 
         int dX = 0;
         int dY = 0;
 
-        if(Gdx.input.isKeyPressed(Input.Keys.W)) {
+        if(Gdx.input.isKeyPressed(Input.Keys.W))
             dY = 1;
-        }
-        if(Gdx.input.isKeyPressed(Input.Keys.S)) {
+        if(Gdx.input.isKeyPressed(Input.Keys.S))
             dY = -1;
-        }
-        if(Gdx.input.isKeyPressed(Input.Keys.A)) {
+        if(Gdx.input.isKeyPressed(Input.Keys.A))
             dX = -1;
-        }
-        if(Gdx.input.isKeyPressed(Input.Keys.D)) {
+        if(Gdx.input.isKeyPressed(Input.Keys.D))
             dX = 1;
-        }
 
-        xVelocity = dX;
-        yVelocity = dY;
 
+        checkCollision( dX, dY, tileSize);
         // debugging output
         /*if (dX != 0 || dY != 0) {
             System.out.println("local input: (" + dX + ", " + dY + ")");

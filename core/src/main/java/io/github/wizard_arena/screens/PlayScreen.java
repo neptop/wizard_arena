@@ -193,7 +193,7 @@ public class PlayScreen extends ScreenAdapter {
         }
 
         // spawn point gets updated when snapshot received
-        player = new Player(game, 300f, client, 0, 0);
+        player = new Player(game, 300f, client, 0, 0, tiles);
         if (client != null) {
             playerSprites.put(client.clientId, player);
         }
@@ -254,7 +254,7 @@ public class PlayScreen extends ScreenAdapter {
                             playerSprites.put(ps.id, p);
                         } else {
                             // remote player
-                            p = new Player(game, 300f, null, 0, 0); // spawn will be updated at next snapshot
+                            p = new Player(game, 300f, null, 0, 0, tiles); // spawn will be updated at next snapshot
                             playerSprites.put(ps.id, p);
                         }
                     }
