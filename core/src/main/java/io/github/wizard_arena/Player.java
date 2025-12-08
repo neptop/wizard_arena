@@ -87,7 +87,7 @@ public class Player extends Sprite {
         this.map = map;
         this.bounds = new Rectangle(spawnX, spawnY, playerSize, playerSize);
     }
-    
+
     public void checkCollision(float dx, float dy, int tileSize) {
         float centerX = getX() + tileSize / 2f;
         float centerY = getY() + tileSize / 2f;
