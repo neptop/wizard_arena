@@ -40,6 +40,11 @@ public class PlayScreen extends ScreenAdapter {
     private boolean hudOpen;
     private Map<Integer, Player> playerSprites = new HashMap<>(); // clientId to Player sprite
 
+    // player wizard sprite textures
+    private Texture redWizardTexture;
+    private Texture blueWizardTexture;
+    private Texture greenWizardTexture;
+    private Texture yellowWizardTexture;
 
     // map stuff
     private Tile[][] tiles;
@@ -94,6 +99,11 @@ public class PlayScreen extends ScreenAdapter {
         public float y;
     }
 
+    // valid cheat spell names
+    private static final Set<String> validSpellNames = new HashSet<>(Arrays.asList(
+        "starter", "poison", "fire", "lightning"
+    ));
+
     // powerup pickups
     private Map<Integer, PowerupPickupRender> powerupPickupSprites = new HashMap<>();
     private Texture speedPowerupTexture;
@@ -103,7 +113,12 @@ public class PlayScreen extends ScreenAdapter {
         public float x;
         public float y;
         public String type;
-}
+    }
+
+    // valid cheat powerup names
+    private static final Set<String> validPowerupNames = new HashSet<>(Arrays.asList(
+        "speed", "health", "overdrive"
+    ));
 
     // host constructor
     public PlayScreen(wizardGame game, ListenServer server, Client client) {
@@ -173,6 +188,12 @@ public class PlayScreen extends ScreenAdapter {
         healPotionTexture = new Texture(Gdx.files.internal("health_potion.png"));
         overdriveTexture = new Texture(Gdx.files.internal("overdrive.png"));
 
+        // player wizard textures
+        redWizardTexture = new Texture(Gdx.files.internal("red_wizard.png"));
+        blueWizardTexture = new Texture(Gdx.files.internal("blue_wizard.png"));
+        greenWizardTexture = new Texture(Gdx.files.internal("green_wizard.png"));
+        yellowWizardTexture = new Texture(Gdx.files.internal("yellow_wizard.png"));
+
         FileHandle file;
         file = Gdx.files.internal("map1.txt");
         String text = file.readString();
@@ -208,6 +229,7 @@ public class PlayScreen extends ScreenAdapter {
         // spawn point gets updated when snapshot received
         player = new Player(game, 300f, client, 0, 0, tiles);
         if (client != null) {
+            applyPlayerTex(client.clientId, player);
             playerSprites.put(client.clientId, player);
         }
 
@@ -278,6 +300,7 @@ public class PlayScreen extends ScreenAdapter {
                         } else {
                             // remote player
                             p = new Player(game, 300f, null, 0, 0, tiles); // spawn will be updated at next snapshot
+                            applyPlayerTex(ps.id, p);
                             playerSprites.put(ps.id, p);
                         }
                     }
@@ -290,6 +313,7 @@ public class PlayScreen extends ScreenAdapter {
                         p.playerHealthBar.setHealthRatio(ps.hp, p.maxHealth);
                         p.setAlive(ps.alive);
                         p.setRoundsWon(ps.roundsWon);
+                        p.setSpellSlots(ps.spellSlots);
                     } else {
                         // remote player, directly set position
                         p.startInter(ps.x, ps.y);
@@ -710,9 +734,16 @@ public class PlayScreen extends ScreenAdapter {
             String[] parts = line.split("\\s+");
             if (parts.length < 2) {
                 console.print("usage: spawnspell <name>");
+                console.print("valid spells: " + validPowerupNames);
                 return;
             }
             String spellName = parts[1].toLowerCase();
+            if (!validSpellNames.contains(spellName)) {
+                console.print("invalid spell name: " + spellName);
+                console.print("valid spells: " + validSpellNames);
+                return;
+            }
+
             if (client != null && client.clientId > 0) {
                 try {
                     client.send(new SpawnSpellPickupRequest(client.clientId, spellName));
@@ -731,9 +762,16 @@ public class PlayScreen extends ScreenAdapter {
             String[] parts = line.split("\\s+");
             if (parts.length < 2) {
                 console.print("usage: spawnpowerup <name>");
+                console.print("valid powerups: " + validPowerupNames);
                 return;
             }
             String powerupName = parts[1].toLowerCase();
+            if (!validPowerupNames.contains(powerupName)) {
+                console.print("invalid powerup name: " + powerupName);
+                console.print("valid powerups: " + validPowerupNames);
+                return;
+            }
+
             if (client != null && client.clientId > 0) {
                 try {
                     client.send(new SpawnPowerupRequest(client.clientId, powerupName));
@@ -748,5 +786,25 @@ public class PlayScreen extends ScreenAdapter {
         }
 
         console.print("unknown command: " + line);
+    }
+
+    private Texture getWizTextById(int id) {
+        switch (id) {
+            case 1:
+                return redWizardTexture;
+            case 2:
+                return blueWizardTexture;
+            case 3:
+                return greenWizardTexture;
+            case 4:
+                return yellowWizardTexture;
+            default:
+                return redWizardTexture;
+        }
+    }
+
+    private void applyPlayerTex(int id, Player p) {
+        Texture tex = getWizTextById(id);
+        p.setTexture(tex);
     }
 }

@@ -196,6 +196,7 @@ public class ListenServer {
                 BaseSpell[] inv = new BaseSpell[MAX_SPELL_SLOTS];
                 inv[0] = new StarterBallSpell(); // first slot
                 playerSpellInventories.put(clientId, inv);
+                ps.spellSlots[0] = "starter";
 
                 // send JoinResponse
                 out.writeObject(new JoinResponse(true, null, clientId, serverStartTime));
@@ -691,18 +692,22 @@ public class ListenServer {
     private void giveSpellToPlayer(int playerId, BaseSpell newSpell, String spellType, float dropX, float dropY){
         BaseSpell[] inv = playerSpellInventories.get(playerId);
         if (inv == null ) return;
+        PlayerState ps = players.get(playerId);
 
         // if empty slot, add spell there
         for(int i = 0; i < MAX_SPELL_SLOTS; i++){
             if (inv[i] == null) {
                 inv[i] = newSpell;
                 System.out.println("Gave spell to player " + playerId + " in slot " + i);
+
+                if (ps != null && ps.spellSlots != null && i < ps.spellSlots.length) {
+                    ps.spellSlots[i] = spellType; // update spell type for client display
+                }
                 return;
             }
         }
 
         // inventory full, replace currently selected slot and drop old spell
-        PlayerState ps = players.get(playerId);
         int selected = (ps != null) ? ps.selectedSpellSlot : 0;
         if (selected < 0 || selected >= MAX_SPELL_SLOTS) {
             selected = 0; // clamp
@@ -725,6 +730,11 @@ public class ListenServer {
         }
         inv[selected] = newSpell;
         System.out.println("Replaced spell in slot " + selected + " for player " + playerId + " with " + newSpell);
+
+        // sync spell type to player state spell slots
+        if (ps != null && ps.spellSlots != null && selected < ps.spellSlots.length) {
+            ps.spellSlots[selected] = spellType; // update spell type for client display
+        }
     }
 
     private BaseSpell createSpellFromType(String spellType){

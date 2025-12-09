@@ -7,12 +7,13 @@
 - Issue 6: Player death and respawn with Game loop with rounds and winner declaration
 - Issue 7: Basic spell casting
 - Issue 9: Inventory system
+- Issue 10: Basic UI & HUD
 - Issue 11: Power ups
+- Issue 12: Art assets for players, spells, arena, and UI elements
+
 
 ** Open Issues **
 - Issue 8: Collision detection
-- Issue 10: Basic UI & HUD
-- Issue 12: Art assets for players, spells, arena, and UI elements
 - Issue 13: Add obstacles in the arena
 - Issue 14: Add lava barrier + shrinking logic
 - Issue 15: Additional Spells

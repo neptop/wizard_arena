@@ -71,6 +71,7 @@ public class Player extends Sprite {
 
     // spell slots
     private int selectedSpellSlot = 0;
+    private String[] spellSlots = new String[4];
 
     // cheats
     public boolean godMode = false;
@@ -99,6 +100,9 @@ public class Player extends Sprite {
 
         createHealthBars();
         createHotbar();
+        spellSlots = new String[4];
+        spellSlots[0] = "starter";
+        hotbar.setSpellTypes(spellSlots);
 
         this.roundWonEmpty = new Texture(Gdx.files.internal("round_win_empty.png"));
         this.roundWonFull = new Texture(Gdx.files.internal("round_win_full.png"));
@@ -471,5 +475,15 @@ public class Player extends Sprite {
 
     public int getSelectedSpellSlot() {
         return selectedSpellSlot;
+    }
+
+    public void setSpellSlots(String[] slots) {
+        if (slots == null) return;
+        int n = Math.min(slots.length, spellSlots.length); // prevent out of bounds
+        for (int i = 0; i < n; i++) {
+            spellSlots[i] = slots[i];
+        }
+        // update hotbar
+        hotbar.setSpellTypes(spellSlots);
     }
 }

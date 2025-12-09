@@ -85,6 +85,8 @@ public class Messages {
         public float combinedDotDuration;
         public float dotTickTimer;
 
+        public String[] spellSlots;
+
         public PlayerState(int id, float x, float y, float hp) {
             this.id = id;
             this.x = x;
@@ -103,6 +105,9 @@ public class Messages {
             this.burnDuration = 0f;
             this.combinedDotDuration = 0f;
             this.dotTickTimer = 0f;
+
+            // 4 spell slots
+            this.spellSlots = new String[4];
         }
     }
 
