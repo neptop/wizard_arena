@@ -13,6 +13,7 @@ import io.github.wizard_arena.net.Client;
 import io.github.wizard_arena.net.Messages;
 import io.github.wizard_arena.net.NetConfig;
 import io.github.wizard_arena.HealthBar;
+import io.github.wizard_arena.Hotbar;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -60,6 +61,7 @@ public class Player extends Sprite {
     // ui
     public HealthBar hudHealthBar;
     public HealthBar playerHealthBar;
+    public Hotbar hotbar;
     Texture roundWonEmpty;
     Texture roundWonFull;
 
@@ -94,8 +96,13 @@ public class Player extends Sprite {
 <<<<<<< HEAD
         this.map = map;
         this.bounds = new Rectangle(spawnX, spawnY, playerSize, playerSize);
+<<<<<<< HEAD
 =======
+=======
+
+>>>>>>> 3faeafc (Hotbar implemented + selected spell)
         createHealthBars();
+        createHotbar();
 
         this.roundWonEmpty = new Texture(Gdx.files.internal("round_win_empty.png"));
         this.roundWonFull = new Texture(Gdx.files.internal("round_win_full.png"));
@@ -281,6 +288,7 @@ public class Player extends Sprite {
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) selectedSpellSlot = 2;
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) selectedSpellSlot = 3;
 
+        hotbar.hotbarSelectedSprite.setPosition((hotbar.hotbarSelectedSprite.getWidth() * selectedSpellSlot) + hotbar.getX() + 14, hotbar.getY() + 52);
         // read inputs
         movement(time);
 
@@ -424,6 +432,10 @@ public class Player extends Sprite {
     private void createHealthBars(){
         this.hudHealthBar = new HealthBar(120, Gdx.graphics.getHeight() - 96, 408, 64);
         this.playerHealthBar = new HealthBar(getX(), getY() - 32, 64, 16);
+    }
+
+    private void createHotbar(){
+        hotbar = new Hotbar(512, 32);
     }
 
     public void setGodMode(boolean godMode) {

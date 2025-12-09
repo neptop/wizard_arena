@@ -4,6 +4,7 @@ import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.*;
+import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
@@ -70,6 +71,7 @@ public class PlayScreen extends ScreenAdapter {
     private SpriteBatch hudBatch;
     Texture roundWinEmpty;
     Texture roundWinFull;
+    Texture hotbarTexture;
 
     // spell projectiles
     private Map<Integer, ProjectileRender> projectileSprites = new HashMap<>();
@@ -164,7 +166,7 @@ public class PlayScreen extends ScreenAdapter {
         fireBallTexture = new Texture(Gdx.files.internal("ball.png"));
         lightningBallTexture = new Texture(Gdx.files.internal("lightning_ball.png"));
 
-        spellScrollTexture = new Texture(Gdx.files.internal("ball.png")); // TODO: TEMP
+        spellScrollTexture = new Texture(Gdx.files.internal("scroll.png"));
 
         // powerup textures
         speedPowerupTexture = new Texture(Gdx.files.internal("speed_powerup.png"));
@@ -427,6 +429,7 @@ public class PlayScreen extends ScreenAdapter {
         // draw spell pickups
         for (SpellPickupRender spr : spellPickupSprites.values()) {
             game.batch.draw(spellScrollTexture, spr.x, spr.y);
+//            game.batch.draw(fireBallTexture, spr.x, spr.y); // TODO: change this to show actual sprite
         }
 
         // draw powerup pickups
@@ -460,6 +463,8 @@ public class PlayScreen extends ScreenAdapter {
         hudBatch.begin();
 
         player.hudHealthBar.draw(hudBatch, 1);
+        player.hotbar.draw(hudBatch, 1);
+        player.hotbar.hotbarSelectedSprite.draw(hudBatch);
 
         // draw the rounds won indicators
         int numRounds = player.getRoundsWon();
