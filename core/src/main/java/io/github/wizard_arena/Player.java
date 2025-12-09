@@ -93,20 +93,15 @@ public class Player extends Sprite {
 
         this.maxHealth = 100f;
         this.health = maxHealth;
-<<<<<<< HEAD
+
         this.map = map;
         this.bounds = new Rectangle(spawnX, spawnY, playerSize, playerSize);
-<<<<<<< HEAD
-=======
-=======
 
->>>>>>> 3faeafc (Hotbar implemented + selected spell)
         createHealthBars();
         createHotbar();
 
         this.roundWonEmpty = new Texture(Gdx.files.internal("round_win_empty.png"));
         this.roundWonFull = new Texture(Gdx.files.internal("round_win_full.png"));
->>>>>>> 17b05df (Healthbars for self UI and other players. Custom crosshair and round win indicators.)
     }
 
     public void checkCollision(float dx, float dy, int tileSize) {
