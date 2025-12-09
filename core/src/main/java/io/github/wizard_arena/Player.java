@@ -27,8 +27,8 @@ public class Player extends Sprite {
     float speed;
 
     //  Blink Stuff
-    private static final float BLINK_COOLDOWN = 2.4f;
-    private static final float BLINK_DISTANCE = 200f;
+    private static final float BLINK_TILES = 17f;
+    private static final float BLINK_DISTANCE = 4f;
 
     private float blinkTimer = 0f;
     public boolean blinked;
@@ -94,18 +94,30 @@ public class Player extends Sprite {
 
         // Horizontal movement
         if (dx != 0) {
-            float newCenterX = centerX + dx * (playerSize / 4f);
+            float moveDistance;
+            if(blinked) {
+                // Check each tile in the blink path
+                moveDistance = findMaxValidDistance(centerX, centerY, dx, 0,
+                    (dx * BLINK_DISTANCE) * tileSize, tileSize);
+            } else {
+                moveDistance = dx * (playerSize / 4f);
+            }
+
+            float newCenterX = centerX + moveDistance;
             float newX = newCenterX - playerSize / 2f;
             float newY = centerY - playerSize / 2f;
-
             Rectangle testBounds = new Rectangle(newX, newY, playerSize, playerSize);
+
             int nextTileX = (int)((testBounds.x + tileSize/2f) / tileSize);
             int tileY = (int)((testBounds.y + tileSize/2f) / tileSize);
 
             if (isColliding(testBounds, nextTileX, tileY)) {
                 xVelocity = 0;
             } else {
-                xVelocity = dx;
+                if(blinked)
+                    xVelocity = moveDistance / tileSize; // this will be the number of tiles moved
+                else
+                    xVelocity = dx;
             }
         } else {
             xVelocity = 0;
@@ -113,22 +125,69 @@ public class Player extends Sprite {
 
         // Vertical movement
         if (dy != 0) {
-            float newCenterY = centerY + dy * (playerSize / 4f);
-            float newX = centerX - playerSize / 2f;
-            float newY = newCenterY - playerSize / 2f;
+            float moveDistance;
+            if(blinked) {
+                moveDistance = findMaxValidDistance(centerX, centerY, 0, dy,
+                    (dy * BLINK_DISTANCE) * tileSize, tileSize);
+            } else {
+                moveDistance = dy * (playerSize / 4f);
+            }
 
+
+            float newCenterY = centerY + moveDistance;
+            float newY = newCenterY - playerSize / 2f;
+            float newX = centerX - playerSize / 2f;
             Rectangle testBounds = new Rectangle(newX, newY, playerSize, playerSize);
-            int tileX = (int)((testBounds.x + tileSize/2f) / tileSize);
+
             int nextTileY = (int)((testBounds.y + tileSize/2f) / tileSize);
+            int tileX = (int)((testBounds.x + tileSize/2f) / tileSize);
 
             if (isColliding(testBounds, tileX, nextTileY)) {
                 yVelocity = 0;
             } else {
-                yVelocity = dy;
+                if(blinked)
+                    yVelocity = moveDistance / tileSize;
+                else
+                    yVelocity = dy;
             }
         } else {
             yVelocity = 0;
         }
+    }
+
+    // finds the max travel distance before hitting a wall
+    private float findMaxValidDistance(float startX, float startY, float dirX, float dirY,
+                                       float targetDistance, int tileSize) {
+
+        float currentDistance = 0;
+        float lastValidDistance = 0;
+
+        int steps = (int)Math.ceil(Math.abs(targetDistance) / tileSize);
+
+        float sign = targetDistance >= 0 ? 1 : -1;
+
+        for (int i = 1; i <= steps; i++) {
+            currentDistance = Math.min(i * tileSize, Math.abs(targetDistance)) * sign;
+
+            float testCenterX = startX + (dirX != 0 ? currentDistance : 0);
+            float testCenterY = startY + (dirY != 0 ? currentDistance : 0);
+
+            float testX = testCenterX - playerSize / 2f;
+            float testY = testCenterY - playerSize / 2f;
+            Rectangle testBounds = new Rectangle(testX, testY, playerSize, playerSize);
+
+            int tileX = (int)((testBounds.x + tileSize/2f) / tileSize);
+            int tileY = (int)((testBounds.y + tileSize/2f) / tileSize);
+
+            if (isColliding(testBounds, tileX, tileY)) {
+                // Hit a wall, return the last valid distance
+                return lastValidDistance;
+            }
+            lastValidDistance = currentDistance;
+        }
+
+        // No collision found, return the full target distance
+        return targetDistance;
     }
 
     private boolean isColliding(Rectangle testBounds, int tileX, int tileY) {
@@ -144,7 +203,7 @@ public class Player extends Sprite {
         }
         return false;
     }
-    public void movement() {
+    public void movement(float time) {
 
         int dX = 0;
         int dY = 0;
@@ -158,6 +217,8 @@ public class Player extends Sprite {
         if(Gdx.input.isKeyPressed(Input.Keys.D))
             dX = 1;
 
+
+        blink(time);
 
         checkCollision( dX, dY, tileSize);
         // debugging output
@@ -180,7 +241,7 @@ public class Player extends Sprite {
         if(blinkTimer <= 0f && Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)) {
             blinked = true;
             stateTime = 0f;
-            blinkTimer = 2.4f;
+            blinkTimer = 2.0f;
             canBlink = true;
         }
     }
@@ -207,17 +268,22 @@ public class Player extends Sprite {
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) selectedSpellSlot = 3;
 
         // read inputs
-        movement();
-        blink(time);
+        movement(time);
 
         // local movement update for client-side prediction
-        setX(getX() + xVelocity * speed * time);
-        setY(getY() + yVelocity * speed * time);
-
         if(blinked){
-            setX(getX() + xVelocity * BLINK_DISTANCE);
-            setY(getY() + yVelocity * BLINK_DISTANCE);
+            setX(getX() + xVelocity * tileSize);
+            setY(getY() + yVelocity * tileSize);
+
         }
+        else {
+            setX(getX() + xVelocity * speed * time);
+            setY(getY() + yVelocity * speed * time);
+        }
+
+
+
+
 
         float aimX = 0f;
         float aimY = 0f;
@@ -251,7 +317,8 @@ public class Player extends Sprite {
             iu.aimX = aimX;
             iu.aimY = aimY;
             iu.castSpell = cast; // spell casting input
-            iu.blink = canBlink; // blink ability input
+
+            iu.blink = blinked; // blink ability input
             iu.selectedSpellSlot = selectedSpellSlot;
             iu.pickupSpell = pickUpSpell;
 
@@ -275,19 +342,26 @@ public class Player extends Sprite {
         int i = 0;
         while (i < pendingInputs.size()) {
             Messages.InputUpdate input = pendingInputs.get(i);
+
             if (input.seq <= lastProcessedInput) {
                 // this input has already been processed by the server
                 pendingInputs.remove(i);
             } else {
                 // reapply this input
-                setX(getX() + input.moveX * speed * input.dt);
-                setY(getY() + input.moveY * speed * input.dt);
 
-                // reapply blink if it was used
                 if(input.blink) {
-                    setX(getX() + input.moveX * BLINK_DISTANCE);
-                    setY(getY() + input.moveY * BLINK_DISTANCE);
+                    setX(getX() + input.moveX * tileSize);
+                    setY(getY() + input.moveY * tileSize);
                 }
+                else {
+                    setX(getX() + input.moveX * speed * input.dt);
+                    setY(getY() + input.moveY * speed * input.dt);
+                }
+                // reapply blink if it was used
+
+
+
+
 
                 i++;
             }

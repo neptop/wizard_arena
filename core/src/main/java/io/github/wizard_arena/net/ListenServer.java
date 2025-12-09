@@ -12,6 +12,9 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 
 public class ListenServer {
+
+    private float tileSize = 64;
+
     private static final int MAX_CLIENTS = 4;
     private final int port;
     private final String hostIP;
@@ -23,7 +26,7 @@ public class ListenServer {
     private final long serverStartTime = System.nanoTime();
     private final Map<Integer, String> playerNames = new ConcurrentHashMap<>();
 
-    private static final float BLINK_COOLDOWN = 2.4f; // seconds
+    private static final float BLINK_COOLDOWN = 2.0f; // seconds
     private static final float BLINK_DISTANCE = 200f; // units
 
     private static final float MAX_HP = 100f;
@@ -216,17 +219,19 @@ public class ListenServer {
                                     float dt = iu.dt;
 
                                     // movement
-                                    p.x += iu.moveX * speed * dt;
-                                    p.y += iu.moveY * speed * dt;
-
-                                    p.blinkCooldown = Math.max(0f, p.blinkCooldown - dt); // reduce blink cooldown
-
                                     // blink
                                     if(iu.blink && p.blinkCooldown <= 0f) {
-                                        p.x += iu.moveX * BLINK_DISTANCE;
-                                        p.y += iu.moveY * BLINK_DISTANCE;
+                                        p.x += iu.moveX * tileSize;
+                                        p.y += iu.moveY * tileSize;
                                         p.blinkCooldown = BLINK_COOLDOWN;
                                     }
+                                    else {
+                                        p.x += iu.moveX * speed * dt;
+                                        p.y += iu.moveY * speed * dt;
+                                    }
+                                    p.blinkCooldown = Math.max(0f, p.blinkCooldown - dt); // reduce blink cooldown
+
+
 
                                     if (iu.selectedSpellSlot < 0) iu.selectedSpellSlot = 0; // clamp spell slot
                                     if (iu.selectedSpellSlot >= MAX_SPELL_SLOTS) iu.selectedSpellSlot = MAX_SPELL_SLOTS - 1;
