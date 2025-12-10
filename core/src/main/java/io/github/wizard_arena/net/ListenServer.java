@@ -1,5 +1,8 @@
 package io.github.wizard_arena.net;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.Texture;
 import io.github.wizard_arena.MapLoader;
 import io.github.wizard_arena.SpawnPoint;
 import io.github.wizard_arena.net.Messages.*;
@@ -49,6 +52,14 @@ public class ListenServer {
     private final List<PowerupState> powerups = Collections.synchronizedList(new ArrayList<>());
     private final AtomicInteger nextPowerupId = new AtomicInteger(1);
     private static final float POWERUP_PICKUP_RADIUS = 64f;
+
+    private boolean[][] wallGrid;
+    private int mapWidth;
+    private int mapHeight;
+    private static final float TILE_SIZE = 64f;
+    private static final float PLAYER_SIZE = 48f;
+    private static final float PROJECTILE_SIZE = 32f;
+
 
     private volatile boolean debugMode = false;
 
@@ -110,6 +121,7 @@ public class ListenServer {
         this.port = port;
         this.hostIP = detectHostIP();
         this.spawnPoints = MapLoader.loadSpawnPoints("map1.txt");
+        loadMapCollision("map1.txt");
     }
 
     // helper method to choose a LAN IP address
@@ -137,6 +149,52 @@ public class ListenServer {
 
     public String getHostIP() {
         return hostIP;
+    }
+
+    private void loadMapCollision(String mapFilePath) {
+        FileHandle file = new FileHandle(mapFilePath);
+        String text = file.readString();
+        String[] lines = text.split("\\r?\\n");
+        mapHeight = lines.length;
+        mapWidth = lines[0].length();
+        wallGrid = new boolean[mapWidth][mapHeight];
+        for (int row = 0; row < mapHeight; row++) {
+            String line = lines[row];
+            for (int col = 0; col < mapWidth; col++) {
+                char tileChar = line.charAt(col);
+                if (tileChar == 'X') {
+                    wallGrid[col][row] = true; // X denotes a wall
+                }
+            }
+        }
+        System.out.println("Loaded map collision from " + mapFilePath);
+        System.out.println("Map size: " + mapWidth + "x" + mapHeight);
+    }
+
+    private boolean projectileHitsWall(float x, float y, float size) {
+        if (wallGrid == null) return false;
+        float centerX = x + size / 2f;
+        float centerY = y + size / 2f;
+        int tileX = (int)(centerX / TILE_SIZE);
+        int tileY = (int)(centerY / TILE_SIZE);
+
+        for (int ty = tileY - 1; ty <= tileY + 1; ty++) {
+            for (int tx = tileX - 1; tx <= tileX + 1; tx++) {
+                if (tx >= 0 && tx < mapWidth && ty >= 0 && ty < mapHeight) {
+                    if (wallGrid[tx][ty]) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    // check if two rectangles overlap
+    private boolean rectsOverlap(float x1, float y1, float w1, float h1,
+                                    float x2, float y2, float w2, float h2) {
+        return (x1 < x2 + w2) && (x1 + w1 > x2) &&
+               (y1 < y2 + h2) && (y1 + h1 > y2);
     }
 
     public void start() throws IOException {
@@ -701,19 +759,111 @@ public class ListenServer {
 
     // update projectiles per tick
     private void updateProjectiles(float dt) {
+        float worldWidth = mapWidth * TILE_SIZE;
+        float worldHeight = mapHeight * TILE_SIZE;
+
         synchronized (projectiles) {
             Iterator<ProjectileState> it = projectiles.iterator();
             while (it.hasNext()) {
                 ProjectileState proj = it.next();
-                proj.x += proj.vx * dt;
-                proj.y += proj.vy * dt;
+                float nextX = proj.x + proj.vx * dt;
+                float nextY = proj.y + proj.vy * dt;
+                boolean remove = false;
+                float size = PROJECTILE_SIZE;
 
-                // TEMP: lifetime countdown
-                proj.maxLifetime -= dt;
-                if (proj.maxLifetime <= 0f) {
-                    System.out.println("Projectile " + proj.id + " removed");
+                if (!proj.piercing) {
+                    // check wall collisions
+                    // starter/breakout ball bounce
+                    if ("starter".equals(proj.spellType)) {
+                        float testX = nextX;
+                        if (projectileHitsWall(testX, proj.y, size)) {
+                            proj.vx = -proj.vx; // reverse X velocity
+                        } else { // no collision, apply new X
+                            proj.x = testX;
+                        }
+                        float testY = nextY;
+                        if (projectileHitsWall(proj.x, testY, size)) {
+                            proj.vy = -proj.vy; // reverse Y velocity
+                        } else { // no collision, apply new Y
+                            proj.y = testY;
+                        }
+                    } else {
+                        // other spell types just get removed on wall hit
+                        if (projectileHitsWall(nextX, nextY, size)) {
+                            remove = true;
+                        } else {
+                            proj.x = nextX;
+                            proj.y = nextY;
+                        }
+                    }
+                } else {
+                    // piercing projectiles just move
+                    proj.x = nextX;
+                    proj.y = nextY;
+                }
+                // check out of bounds
+                if (!remove) {
+                    if (proj.x < 0f || proj.x > worldWidth || proj.y < 0f || proj.y > worldHeight) {
+                        remove = true;
+                    }
+                }
+                // projectile vs player collisions
+                if (!remove) {
+                    for (PlayerState p : players.values()) {
+                        if (!p.alive) continue;
+                        if (rectsOverlap(proj.x, proj.y, size, size, p.x, p.y, PLAYER_SIZE, PLAYER_SIZE)) {
+                            // hit detected
+                            damagePlayer(p.id, proj.damage);
+                            // apply debuffs based on spell type
+                            if ("poison".equals(proj.spellType)) {
+                                applyPoisonDebuff(p);
+                            } else if ("fire".equals(proj.spellType)) {
+                                applyBurnDebuff(p);
+                            }
+
+                            // add more spell types here...
+                            remove = true;
+                            break;
+                        }
+                    }
+                }
+                if (remove) {
                     it.remove();
                 }
+            }
+            // handle special cases here
+            // e.g. fire and ice interactions, etc.
+            handleProjectileCollisions();
+        }
+    }
+
+    private void handleProjectileCollisions() {
+        if (projectiles.size() < 2) return; // need at least 2 projectiles to collide
+        float size = PROJECTILE_SIZE;
+        Set<Integer> toRemove = new HashSet<>();
+
+        int n = projectiles.size();
+        for (int i = 0; i < n; i++) {
+            ProjectileState p1 = projectiles.get(i);
+            if (p1 == null) continue;
+            for (int j = i + 1; j < n; j++) {
+                ProjectileState p2 = projectiles.get(j);
+                if (p2 == null) continue;
+
+                boolean fireIceCollision =
+                    ("fire".equals(p1.spellType) && "ice".equals(p2.spellType)) ||
+                        ("ice".equals(p1.spellType) && "fire".equals(p2.spellType));
+
+                if (fireIceCollision) continue;
+
+                if (rectsOverlap(p1.x, p1.y, size, size, p2.x, p2.y, size, size)) {
+                    // collision detected, mark both for removal
+                    toRemove.add(p1.id);
+                    toRemove.add(p2.id);
+                }
+
+                // TODO: add effects for specific spell collisions here
+                System.out.println("Projectile " + p1.id + " (" + p1.spellType + ") collided with Projectile " + p2.id + " (" + p2.spellType + ")");
             }
         }
     }
@@ -826,21 +976,28 @@ public class ListenServer {
                 if (p.poisonDuration <= 0f) {
                     p.poisonDuration = 0f;
                 }
+            }
 
-                if (p.burnDuration > 0f) {
-                    p.burnDuration -= dt;
-                    if (p.burnDuration <= 0f) {
-                        p.burnDuration = 0f;
-                    }
+            if (p.burnDuration > 0f) {
+                p.burnDuration -= dt;
+                if (p.burnDuration <= 0f) {
+                    p.burnDuration = 0f;
                 }
+            }
 
-                if (p.combinedDotDuration > 0f) {
-                    p.combinedDotDuration -= dt;
-                    if (p.combinedDotDuration <= 0f) {
-                        p.combinedDotDuration = 0f;
-                    }
+            if (p.combinedDotDuration > 0f) {
+                p.combinedDotDuration -= dt;
+                if (p.combinedDotDuration <= 0f) {
+                    p.combinedDotDuration = 0f;
                 }
+            }
 
+            boolean hasDot =
+                (p.poisonDuration > 0f) ||
+                (p.burnDuration > 0f) ||
+                (p.combinedDotDuration > 0f);
+
+            if (hasDot) {
                 // accumulate tick timer until 1 second
                 p.dotTickTimer += dt;
                 if (p.dotTickTimer >= 1.0f) {
@@ -862,6 +1019,8 @@ public class ListenServer {
                         System.out.println("player " + p.id + " took " + dmgThisTick + " DOT damage");
                     }
                 }
+            } else {
+                p.dotTickTimer = 0f; // reset if no DOT active
             }
         }
     }

@@ -130,8 +130,8 @@ public class Messages {
         public float vx;
         public float vy;
         public int ownerId; // id of the player who cast the projectile
-        public float maxLifetime; // maximum lifetime of the projectile in seconds // TEMP
         public float damage;
+        public boolean piercing;
         public String spellType;
 
         public ProjectileState() {}
@@ -142,8 +142,8 @@ public class Messages {
             this.vx = vx;
             this.vy = vy;
             this.ownerId = -1;
-            this.maxLifetime = 0f; // TEMP
             this.damage = 0f;
+            this.piercing = false;
             this.spellType = "";
         }
     }
