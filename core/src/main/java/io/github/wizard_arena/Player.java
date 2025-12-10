@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import io.github.wizard_arena.net.Client;
 import io.github.wizard_arena.net.Messages;
@@ -22,11 +23,12 @@ import java.util.Vector;
 
 public class Player extends Sprite {
 
-    //  Speed stuff
+    //  Orientation stuff
 
     float xVelocity;
     float yVelocity;
     float speed;
+    public float lookAngle;
 
     //  Blink Stuff
     private static final float BLINK_TILES = 17f;
@@ -313,6 +315,8 @@ public class Player extends Sprite {
         // wanted to hide self hp bar but commenting this out broke it so it's just set to offscreen
         playerHealthBar.setPosition(getX(), getY() - 1024);
 
+        rotateSprite(camera);
+
         if (camera != null) {
             Vector3 mouse = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f); // mouse position in screen coords
             camera.unproject(mouse); // convert to world coords
@@ -341,6 +345,7 @@ public class Player extends Sprite {
 
             iu.aimX = aimX;
             iu.aimY = aimY;
+            iu.lookAngle = lookAngle;
             iu.castSpell = cast; // spell casting input
 
             iu.blink = blinked; // blink ability input
@@ -362,6 +367,8 @@ public class Player extends Sprite {
         // correct position based on server state
         setX(serverX);
         setY(serverY);
+
+//        setRotation(lookAngle);
 
         // reapply pending inputs that the server hasn't processed yet
         int i = 0;
@@ -431,6 +438,19 @@ public class Player extends Sprite {
     private void createHealthBars(){
         this.hudHealthBar = new HealthBar(120, Gdx.graphics.getHeight() - 96, 408, 64);
         this.playerHealthBar = new HealthBar(getX(), getY() - 32, 64, 16);
+    }
+
+    // rotates the sprite to point toward crosshair
+    private void rotateSprite(OrthographicCamera camera){
+        Vector3 mousePos = camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0));
+        Vector2 spritePos = new Vector2(getX(), getY());
+
+        float angleRadians = (float) Math.atan2(mousePos.y - spritePos.y, mousePos.x - spritePos.x);
+        float angleDegrees = (float) Math.toDegrees(angleRadians);
+        angleDegrees -= 90;
+
+        this.setRotation(angleDegrees);
+        lookAngle = angleDegrees;
     }
 
     private void createHotbar(){

@@ -40,6 +40,7 @@ public class Messages {
         public float moveY;
         public float aimX; // aiming direction
         public float aimY;
+        public float lookAngle;
         public boolean castSpell; // spell casting input
         public boolean blink; // blink ability input
         public int selectedSpellSlot; // selected spell slot (0-3)
@@ -79,6 +80,7 @@ public class Messages {
         public int id;
         public float x;
         public float y;
+        public float lookAngle;
         public float hp;
         public int lastProcessedInput; // last input seq processed by server
         public float blinkCooldown; // time remaining for blink ability cooldown
@@ -107,6 +109,7 @@ public class Messages {
             this.x = x;
             this.y = y;
             this.hp = hp;
+            this.lookAngle = 0f;
             this.lastProcessedInput = 0;
             this.blinkCooldown = 0f;
             this.alive = true;

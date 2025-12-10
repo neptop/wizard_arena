@@ -399,7 +399,8 @@ public class ListenServer {
                                     }
                                     p.blinkCooldown = Math.max(0f, p.blinkCooldown - dt); // reduce blink cooldown
 
-
+                                    // process rotation of players
+                                    p.lookAngle = iu.lookAngle;
 
                                     if (iu.selectedSpellSlot < 0) iu.selectedSpellSlot = 0; // clamp spell slot
                                     if (iu.selectedSpellSlot >= MAX_SPELL_SLOTS) iu.selectedSpellSlot = MAX_SPELL_SLOTS - 1;

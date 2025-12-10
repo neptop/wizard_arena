@@ -32,9 +32,9 @@ public class Hotbar extends Actor {
         hotbarTexture = new Texture(Gdx.files.internal("hotbar.png"));
         hotbarSelected = new Texture(Gdx.files.internal("hotbar_selected.png"));
         hotbarSelectedSprite = new Sprite(hotbarSelected);
-        starterBallTex = new Texture(Gdx.files.internal("ball.png"));
+        starterBallTex = new Texture(Gdx.files.internal("star_spell_icon.png"));
         poisonBallTex = new Texture(Gdx.files.internal("poison_ball.png"));
-        fireBallTex = new Texture(Gdx.files.internal("ball.png"));
+        fireBallTex = new Texture(Gdx.files.internal("fireball_spell_icon.png"));
         lightningBallTex = new Texture(Gdx.files.internal("lightning_ball.png"));
 
         setPosition(Gdx.graphics.getWidth() - 288, 0);

@@ -188,10 +188,10 @@ public class PlayScreen extends ScreenAdapter {
         floor = new Texture(Gdx.files.internal("floor_tile.png"));
 
         // spell projectile textures
-        starterBallTexture = new Texture(Gdx.files.internal("ball.png"));
-        poisonBallTexture = new Texture(Gdx.files.internal("poison_ball.png"));
-        fireBallTexture = new Texture(Gdx.files.internal("ball.png"));
-        lightningBallTexture = new Texture(Gdx.files.internal("lightning_ball.png"));
+        starterBallTexture = new Texture(Gdx.files.internal("star_spell_icon.png"));
+        poisonBallTexture = new Texture(Gdx.files.internal("poison_ball_projectile.png"));
+        fireBallTexture = new Texture(Gdx.files.internal("fireball_projectile.png"));
+        lightningBallTexture = new Texture(Gdx.files.internal("lightning_ball_projectile.png"));
 
         spellScrollTexture = new Texture(Gdx.files.internal("scroll.png"));
 
@@ -332,6 +332,8 @@ public class PlayScreen extends ScreenAdapter {
                         p.setHealth(ps.hp); // update health
                         p.hudHealthBar.setHealthRatio(ps.hp, p.maxHealth); // update health bar
                         p.playerHealthBar.setHealthRatio(ps.hp, p.maxHealth);
+                        p.lookAngle = ps.lookAngle;
+                        p.setRotation(ps.lookAngle);
                         p.setAlive(ps.alive);
                         p.setRoundsWon(ps.roundsWon);
                     }
