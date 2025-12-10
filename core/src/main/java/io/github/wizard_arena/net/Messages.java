@@ -233,11 +233,13 @@ public class Messages {
     public static class LobbyUpdate implements Msg {
         public List<LobbyPlayerInfo> players;
         public String hostIP;
+        public int hostPort;
 
         public LobbyUpdate() {}
-        public LobbyUpdate(List<LobbyPlayerInfo> players, String hostIP) {
+        public LobbyUpdate(List<LobbyPlayerInfo> players, String hostIP, int hostPort) {
             this.players = players;
             this.hostIP = hostIP;
+            this.hostPort = hostPort;
         }
     }
 

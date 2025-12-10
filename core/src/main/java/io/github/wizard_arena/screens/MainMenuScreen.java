@@ -145,10 +145,12 @@ public class MainMenuScreen extends ScreenAdapter {
                final TextField ipField = new TextField("", skin);
                final Label errorLabel = new Label("", skin);
 
+               ipField.setMessageText("e.g. 192.168.0.15:25565");
+
                // build dialog table
                Table content = dialog.getContentTable();
                content.pad(10f);
-               content.add(new Label("Enter host IP:", skin)).left().row();
+               content.add(new Label("Enter host address (IP:port):", skin)).left().row();
                content.add(ipField).width(200f).padTop(5f).row();
                content.add(errorLabel).left().padTop(5f).row();
 

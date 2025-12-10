@@ -34,7 +34,7 @@ public class LobbyScreen extends ScreenAdapter {
     private final String playerName;
     private final boolean isHost;
     private final String hostIP;
-    private String displayIP;
+    private int hostPort;
 
     private Stage stage;
     private ScreenViewport viewport;
@@ -59,10 +59,11 @@ public class LobbyScreen extends ScreenAdapter {
         this.playerName = playerName;
         this.isHost = isHost;
         this.hostIP = (server != null) ? server.getHostIP() : null;
+        this.hostPort = (server != null) ? server.getPort() : NetConfig.TCP_PORT; // fallback to port only
         this.rawHostIP = hostIP;
 
         if (hostIP != null) {
-            this.currentLobbyIP = hostIP + ":" + NetConfig.TCP_PORT;
+            this.currentLobbyIP = hostIP + ":" + hostPort;
         } else {
             this.currentLobbyIP = null;
         }
@@ -98,12 +99,12 @@ public class LobbyScreen extends ScreenAdapter {
         leftPanel.add(playersLabel).left().row();
         leftPanel.add(scrollPane).grow().row();
 
-        //show lobby IP
+        //show lobby IP / host address
         String initIPText;
         if (currentLobbyIP != null) {
-            initIPText = "Lobby IP: " + currentLobbyIP;
+            initIPText = "Host Address: " + currentLobbyIP;
         } else {
-            initIPText = "Lobby IP: N/A";
+            initIPText = "Host Address: N/A";
         }
 
         ipLabel = new Label(initIPText, skin);
@@ -114,10 +115,10 @@ public class LobbyScreen extends ScreenAdapter {
         copyIPButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                if (rawHostIP != null) {
-                    Gdx.app.getClipboard().setContents(rawHostIP);
+                if (currentLobbyIP != null) {
+                    Gdx.app.getClipboard().setContents(currentLobbyIP);
                     // feedback to user
-                    ipLabel.setText("Lobby IP: " + rawHostIP + " (copied)");
+                    ipLabel.setText("Host Address: " + currentLobbyIP + " (copied)");
                 }
             }
         });
@@ -224,8 +225,9 @@ public class LobbyScreen extends ScreenAdapter {
                 // update ip label for everyone
                 if (ipLabel != null && lobbyUpdate.hostIP != null) {
                     rawHostIP = lobbyUpdate.hostIP;
-                    currentLobbyIP = lobbyUpdate.hostIP + ":" + NetConfig.TCP_PORT;
-                    ipLabel.setText("Lobby IP: " + currentLobbyIP);
+                    hostPort = lobbyUpdate.hostPort;
+                    currentLobbyIP = rawHostIP + ":" + hostPort;
+                    ipLabel.setText("Host Address: " + currentLobbyIP);
                 }
 
             } else if (msg instanceof Messages.StartGame) {

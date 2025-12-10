@@ -672,7 +672,7 @@ public class ListenServer {
             info.add(new LobbyPlayerInfo(client.clientId, name, isHost));
         }
 
-        LobbyUpdate lobbyUpdate = new LobbyUpdate(info, getHostIP());
+        LobbyUpdate lobbyUpdate = new LobbyUpdate(info, getHostIP(), port);
         for (ClientHandler client : clients.values()) {
             sendTo(client, lobbyUpdate);
         }
