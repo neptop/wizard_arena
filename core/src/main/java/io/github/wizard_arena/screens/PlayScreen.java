@@ -120,6 +120,14 @@ public class PlayScreen extends ScreenAdapter {
         "speed", "health", "overdrive"
     ));
 
+    // lava
+    private boolean lavaActive = false;
+    private float lavaCenterX = 0f;
+    private float lavaCenterY = 0f;
+    private float lavaRadius = 0f;
+    private float lavaWarningTimer = 0f;
+    private static final float LAVA_WARNING_DURATION = 3f; // seconds
+
     // host constructor
     public PlayScreen(wizardGame game, ListenServer server, Client client) {
         this.game = game;
@@ -331,12 +339,22 @@ public class PlayScreen extends ScreenAdapter {
                 // remove players that aren't in the snapshot i.e. disconnected
                 playerSprites.entrySet().removeIf(e -> !updatedPlayerIds.contains(e.getKey()));
 
+                // update round state
                 roundNumber = s.roundNumber;
                 roundTimeRemaining = s.roundTimeRemaining;
                 roundState = s.roundState;
                 roundWinnerId = s.roundWinnerId;
                 matchWinnerId = s.matchWinnerId;
                 postRoundTimeRemaining = s.postRoundTimeRemaining;
+
+                // update lava state
+                lavaActive = s.lavaActive;
+                lavaCenterX = s.lavaCenterX;
+                lavaCenterY = s.lavaCenterY;
+                lavaRadius = s.lavaRadius;
+                if (s.lavaJustStarted) {
+                    lavaWarningTimer = LAVA_WARNING_DURATION;
+                }
 
                 // process projectiles
                 Set<Integer> updatedProjectileIds = new HashSet<>();
@@ -482,6 +500,49 @@ public class PlayScreen extends ScreenAdapter {
 
         game.batch.end();
 
+        // draw lava safe circle and lava field
+        if (lavaActive && lavaRadius > 0f){
+            Gdx.gl.glEnable(GL20.GL_BLEND);
+            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+            shapeRenderer.setProjectionMatrix(camera.combined);
+
+            float innerRadius = lavaRadius;
+            float worldWidth = map_width * spriteSize;
+            float worldHeight = map_height * spriteSize;
+            float outerRadius = Math.max(worldWidth, worldHeight) * 1.2f;
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(1f, 0.4f, 0f, 0.25f); // orange translucent
+
+            int numSegments = 80; // number of segments to approximate the circle
+            for (int i = 0; i < numSegments; i++) {
+                float angle1 = (float) (i * 2 * Math.PI / numSegments);
+                float angle2 = (float) ((i + 1) * 2 * Math.PI / numSegments);
+                float cos1 = (float) Math.cos(angle1);
+                float cos2 = (float) Math.cos(angle2);
+                float sin1 = (float) Math.sin(angle1);
+                float sin2 = (float) Math.sin(angle2);
+                float x1Inner = lavaCenterX + innerRadius * cos1;
+                float y1Inner = lavaCenterY + innerRadius * sin1;
+                float x2Inner = lavaCenterX + innerRadius * cos2;
+                float y2Inner = lavaCenterY + innerRadius * sin2;
+                float x1Outer = lavaCenterX + outerRadius * cos1;
+                float y1Outer = lavaCenterY + outerRadius * sin1;
+                float x2Outer = lavaCenterX + outerRadius * cos2;
+                float y2Outer = lavaCenterY + outerRadius * sin2;
+
+                shapeRenderer.triangle(x1Inner, y1Inner, x1Outer, y1Outer, x2Outer, y2Outer);
+                shapeRenderer.triangle(x1Inner, y1Inner, x2Outer, y2Outer, x2Inner, y2Inner);
+            }
+            shapeRenderer.end();
+
+            // draw lava safe circle outline
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+            shapeRenderer.setColor(1f, 0.3f, 0f, 1f); // orange
+            shapeRenderer.circle(lavaCenterX, lavaCenterY, innerRadius);
+            shapeRenderer.end();
+            Gdx.gl.glDisable(GL20.GL_BLEND);
+        }
+
         // draw ui stuff over tiles + players
         hudBatch.setProjectionMatrix(hudCamera.combined);
         hudBatch.begin();
@@ -501,6 +562,23 @@ public class PlayScreen extends ScreenAdapter {
         }
 
         hudBatch.end();
+
+        // draw lava warning
+        if (lavaWarningTimer > 0f) {
+            lavaWarningTimer -= delta;
+            hudBatch.setProjectionMatrix(hudCamera.combined);
+            hudBatch.begin();
+            String msg = "Lava is rising!";
+            font.setColor(Color.ORANGE);
+
+            // center the text at the top of the screen
+            float screenWidth = hudCamera.viewportWidth;
+            float y = hudCamera.viewportHeight - 40f;
+            font.draw(hudBatch, msg, screenWidth / 2f- 80f, y);
+            hudBatch.end();
+        }
+
+
         // render the between round overlay
         if (roundState == 2 || roundState == 3) {
             drawRoundOverlay();
@@ -631,6 +709,7 @@ public class PlayScreen extends ScreenAdapter {
             console.print("killall - instantly kill all other players (should end round as a draw)");
             console.print("spawnspell <name> - spawn a spell of the given name at the player's position");
             console.print("spawnpowerup <name> - spawn a powerup of the given name at the player's position");
+            console.print("startlava - start the lava hazard");
             return;
         }
 
@@ -734,7 +813,7 @@ public class PlayScreen extends ScreenAdapter {
             String[] parts = line.split("\\s+");
             if (parts.length < 2) {
                 console.print("usage: spawnspell <name>");
-                console.print("valid spells: " + validPowerupNames);
+                console.print("valid spells: " + validSpellNames);
                 return;
             }
             String spellName = parts[1].toLowerCase();
@@ -778,6 +857,20 @@ public class PlayScreen extends ScreenAdapter {
                     console.print("spawned powerup: " + powerupName);
                 } catch (Exception e) {
                     console.print("failed to send spawn powerup request: " + e.getMessage());
+                }
+            } else {
+                console.print("cmd failed");
+            }
+            return;
+        }
+
+        if (lower.equals("startlava")) {
+            if (client != null && client.clientId > 0) {
+                try {
+                    client.send(new LavaStartRequest(client.clientId));
+                    console.print("sent start lava request");
+                } catch (Exception e) {
+                    console.print("failed to send start lava request: " + e.getMessage());
                 }
             } else {
                 console.print("cmd failed");

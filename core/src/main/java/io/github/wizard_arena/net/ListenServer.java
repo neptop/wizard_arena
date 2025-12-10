@@ -77,6 +77,19 @@ public class ListenServer {
     // track wins per player
     private final Map<Integer, Integer> winCount = new ConcurrentHashMap<>();
 
+    // lava barrier parameters
+    private static final float LAVA_START_TIME = 60f; // time before lava starts rising
+    private static final float LAVA_INITIAL_RADIUS = 1600f; // tune to fit map size
+    private static final float LAVA_MIN_RADIUS = 150;
+    private static final float LAVA_SHRINK_RATE = 15f;
+    private static final float LAVA_DAMAGE_PER_TICK = 20f;
+    private boolean lavaActive = false;
+    private boolean lavaJustStarted = false;
+    private float lavaCenterX;
+    private float lavaCenterY;
+    private float lavaRadius;
+    private float lavaInitialRadius = LAVA_INITIAL_RADIUS;
+
     private static class ClientHandler {
         final int clientId;
         final Socket socket;
@@ -388,6 +401,14 @@ public class ListenServer {
                                         System.out.println("Spawned powerup pickup " + spuq.powerupType + " with ID " + pickupId + " at (" + spawnX + "," + spawnY + ") for player " + spuq.playerId);
                                     }
                                 }
+                            } else if (obj instanceof LavaStartRequest) {
+                                LavaStartRequest lsr = (LavaStartRequest) obj;
+                                if (currentRoundState == RoundState.IN_PROGRESS && !lavaActive) {
+                                    lavaActive = true;
+                                    lavaJustStarted = true;
+                                    lavaRadius = lavaInitialRadius;
+                                    System.out.println("Lava has been started early by player " + lsr.playerId);
+                                }
                             }
                         }
                     } catch (IOException | ClassNotFoundException e) {
@@ -499,6 +520,13 @@ public class ListenServer {
         snapshot.matchWinnerId = matchWinnerId;
         snapshot.postRoundTimeRemaining = postRoundTimer;
 
+        snapshot.lavaActive = lavaActive;
+        snapshot.lavaJustStarted = lavaJustStarted;
+        snapshot.lavaCenterX = lavaCenterX;
+        snapshot.lavaCenterY = lavaCenterY;
+        snapshot.lavaRadius = lavaRadius;
+        lavaJustStarted = false; // reset after sending *should only be true for one snapshot*
+
         for (ClientHandler client : clients.values()) {
             sendTo(client, snapshot);
         }
@@ -555,6 +583,13 @@ public class ListenServer {
 
     public void sendStartGame() {
         if (currentRoundState == RoundState.WAITING){
+            int numPlayers = players.size();
+
+            if (!debugMode && numPlayers < 2) {
+                System.out.println("Not enough players to start the game.");
+                return; // not enough players to start
+            }
+
             startNewRound();
         }
 
@@ -626,27 +661,24 @@ public class ListenServer {
 
         switch(currentRoundState){
             case WAITING:
-                // TODO: check if enough players to start
                 break;
             case IN_PROGRESS:
                 roundTimer -= dt;
-                if (roundTimer <= 0f) {
-                    int aliveCount = 0;
-                    int lastAliveId = -1;
-                    for (PlayerState p : players.values()) {
-                        if (p.alive) {
-                            aliveCount++;
-                            lastAliveId = p.id;
-                        }
-                    }
-                    if (aliveCount == 1) {
-                        endRound(lastAliveId);
-                    } else {
-                        endRound(-1); // no winner
-                    }
-                } else {
-                    checkPlayersAlive();
+                if (roundTimer < 0f) roundTimer = 0f; // clamp to zero so it doesn't go negative
+
+                if(!lavaActive && (ROUND_DURATION - roundTimer) >= LAVA_START_TIME){
+                    // start lava
+                    lavaActive = true;
+                    lavaJustStarted = true;
+                    lavaRadius = lavaInitialRadius;
+                    System.out.println("Lava has started rising!");
                 }
+
+                if (lavaActive) {
+                    updateLava(dt);
+                }
+
+                checkPlayersAlive();
                 break;
             case POST_ROUND:
                 postRoundTimer -= dt;
@@ -655,7 +687,14 @@ public class ListenServer {
                 }
                 break;
             case MATCH_OVER:
-                // TODO: handle match over state by waiting for restart or lobby return
+                // return to the lobby after delay
+                postRoundTimer -= dt;
+                if (postRoundTimer <= 0f) {
+                    System.out.println("match over, returning to lobby");
+                    // this should close all sockets and set running to false
+                    // host and clients should return to the main menu
+                    stop();
+                }
                 break;
         }
     }
@@ -919,6 +958,43 @@ public class ListenServer {
         }
     }
 
+    private void updateLava(float dt) {
+        // shrink lava radius over time
+        if (lavaRadius > LAVA_MIN_RADIUS) {
+            lavaRadius -= LAVA_SHRINK_RATE * dt;
+            if (lavaRadius < LAVA_MIN_RADIUS) {
+                lavaRadius = LAVA_MIN_RADIUS;
+            }
+        }
+
+        for (PlayerState p : players.values()) {
+            if (!p.alive) continue; // skip dead players
+
+            float dx = p.x - lavaCenterX;
+            float dy = p.y - lavaCenterY;
+            float dist = (float)Math.sqrt(dx * dx + dy * dy);
+            boolean nowInLava = (dist > lavaRadius);
+            if (nowInLava) {
+                // take 20 dmg in the first tick
+                if (!p.inLava) {
+                    damagePlayer(p.id, LAVA_DAMAGE_PER_TICK);
+                    p.lavaTickTimer = 0f;
+                } else {
+                    // accumulate lava tick timer, 1 tick every second
+                    p.lavaTickTimer += dt;
+                    if (p.lavaTickTimer >= 1.0f) {
+                        p.lavaTickTimer -= 1.0f;
+                        damagePlayer(p.id, LAVA_DAMAGE_PER_TICK);
+                    }
+                }
+            } else {
+                // player is out of lava, reset timer
+                p.lavaTickTimer = 0f;
+            }
+            p.inLava = nowInLava; // update lava status
+        }
+    }
+
     private void startNewRound() {
         currentRound++;
         roundTimer = ROUND_DURATION;
@@ -932,6 +1008,47 @@ public class ListenServer {
         }
 
         assignSpawns();
+
+        // calculate lava center
+        if (spawnPoints != null && !spawnPoints.isEmpty()) {
+            float sumX = 0f;
+            float sumY = 0f;
+            float maxDistSq = 0f;
+            for (SpawnPoint sp : spawnPoints) {
+                sumX += sp.x;
+                sumY += sp.y;
+            }
+            lavaCenterX = sumX / spawnPoints.size();
+            lavaCenterY = sumY / spawnPoints.size();
+
+            // compute radius to cover all spawn points
+            for (SpawnPoint sp : spawnPoints) {
+                float dx = sp.x - lavaCenterX;
+                float dy = sp.y - lavaCenterY;
+                float distSq = dx * dx + dy * dy;
+                if (distSq > maxDistSq) {
+                    maxDistSq = distSq;
+                }
+            }
+
+            float margin = 400f;
+            lavaInitialRadius = (float) Math.sqrt(maxDistSq) + margin;
+
+            if (lavaInitialRadius < LAVA_MIN_RADIUS) {
+                lavaInitialRadius = LAVA_MIN_RADIUS;
+            }
+        }
+
+
+
+        // reset lava
+        lavaActive = false;
+        lavaJustStarted = false;
+        lavaRadius = 0f;
+        for (PlayerState p : players.values()) {
+            p.inLava = false;
+            p.lavaTickTimer = 0f;
+        }
 
         // reset players
         for (PlayerState p : players.values()) {
@@ -961,7 +1078,7 @@ public class ListenServer {
             if (wins >= ROUNDS_TO_WIN) {
                 matchWinnerId = winnerID;
                 currentRoundState = RoundState.MATCH_OVER;
-                postRoundTimer = 0f;
+                postRoundTimer = POST_ROUND_DELAY;
                 System.out.println("player " + winnerID + " won the match");
             }
         } else {

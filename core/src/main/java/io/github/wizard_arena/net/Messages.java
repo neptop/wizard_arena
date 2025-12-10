@@ -60,6 +60,11 @@ public class Messages {
         public int roundWinnerId; // id of the player who won the round, -1 if no winner yet
         public int matchWinnerId; // id of the player who won the match, -1 if no winner yet
         public float postRoundTimeRemaining; // time remaining in post round state
+        public boolean lavaActive; // is lava hazard active
+        public boolean lavaJustStarted;
+        public float lavaCenterX;
+        public float lavaCenterY;
+        public float lavaRadius;
 
         public Snapshot() {}
     }
@@ -78,6 +83,8 @@ public class Messages {
         public float speedMultiplier;
         public float speedBoostDuration;
         public float overdriveDuration;
+        public boolean inLava;
+        public float lavaTickTimer;
 
         // debuff/ DOT tracking
         public float poisonDuration;
@@ -105,6 +112,10 @@ public class Messages {
             this.burnDuration = 0f;
             this.combinedDotDuration = 0f;
             this.dotTickTimer = 0f;
+
+            // lava
+            this.inLava = false;
+            this.lavaTickTimer = 0f;
 
             // 4 spell slots
             this.spellSlots = new String[4];
@@ -264,4 +275,11 @@ public class Messages {
         }
     }
 
+    public static class LavaStartRequest implements Msg {
+        public int playerId; // for logging purposes
+        public LavaStartRequest() {}
+        public LavaStartRequest(int playerId) {
+            this.playerId = playerId;
+        }
+    }
 }
