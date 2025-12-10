@@ -118,12 +118,14 @@ public class MainMenuScreen extends ScreenAdapter {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 String playerName = (displayName == null) ? "" : displayName.trim();
-                ListenServer server = new ListenServer(NetConfig.TCP_PORT);
+                ListenServer server = new ListenServer();
                 Client client = new Client();
                 try {
                     Gdx.app.log("Button", "clicked");
                     server.start();
-                    client.connect("127.0.0.1", NetConfig.TCP_PORT, playerName);
+                    int serverPort = server.getPort();
+                    String hostIP = server.getHostIP();
+                    client.connect("127.0.0.1", serverPort, playerName);
                     game.setScreen(new LobbyScreen(game, server, client, playerName, true));
                     dispose();
                 } catch (Exception e) {
@@ -169,12 +171,31 @@ public class MainMenuScreen extends ScreenAdapter {
                            ip = "127.0.0.1"; // default to localhost
                        }
 
+                       String host = ip;
+                       int port = NetConfig.TCP_PORT;
+                       int colonIndex = ip.lastIndexOf(':');
+                       if (colonIndex != -1) {
+                           host = ip.substring(0, colonIndex).trim();
+                           String portStr = ip.substring(colonIndex + 1).trim();
+                           try {
+                               port = Integer.parseInt(portStr);
+                           } catch (NumberFormatException e) {
+                               errorLabel.setText("Invalid port number.");
+                               return;
+                           }
+                       }
+
+                       if (host.isEmpty()) {
+                           errorLabel.setText("IP address cannot be empty.");
+                           return;
+                       }
+
                        String playerName = (displayName == null) ? "" : displayName.trim();
                        Client client = new Client();
                        try {
                            Gdx.app.log("Button", "clicked");
-                           Gdx.app.log("Join", "Connecting to " + ip + ":" + NetConfig.TCP_PORT);
-                           client.connect(ip, NetConfig.TCP_PORT, playerName);
+                           Gdx.app.log("Join", "Connecting to " + host + ":" + port);
+                           client.connect(host, port, playerName);
                            game.setScreen(new LobbyScreen(game, null, client, playerName, false));
                            dispose();
                        } catch (Exception e) {

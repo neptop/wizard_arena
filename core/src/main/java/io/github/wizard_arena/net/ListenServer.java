@@ -117,29 +117,64 @@ public class ListenServer {
         }
     }
 
-    public ListenServer(int port) {
-        this.port = port;
+    public ListenServer() {
+        this.port = findOpenPort(NetConfig.MIN_TCP_PORT, NetConfig.MAX_TCP_PORT);
         this.hostIP = detectHostIP();
         this.spawnPoints = MapLoader.loadSpawnPoints("map1.txt");
         loadMapCollision("map1.txt");
     }
 
+    // helper method to find an open port in the given range
+    private int findOpenPort(int min, int max) {
+        Random r = new Random();
+        while (true) {
+            int port = r.nextInt(max - min) + min;
+            try {
+                ServerSocket ss = new ServerSocket(port);
+                ss.close();
+                return port;
+            } catch (IOException e) {
+                // port is in use, try another
+            }
+        }
+    }
+
     // helper method to choose a LAN IP address
     private String detectHostIP() {
         try {
+            List <InetAddress> candidates = new ArrayList<>();
             Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
             while (interfaces.hasMoreElements()) {
                 NetworkInterface iface = interfaces.nextElement();
                 if (iface.isLoopback() || !iface.isUp() || iface.isVirtual()) continue;
 
+                String name = iface.getDisplayName().toLowerCase();
+                String sysName = iface.getName().toLowerCase();
+
+                if (name.contains("virtual") || name.contains("vmware") || sysName.contains("vbox") ||
+                    sysName.contains("docker") || sysName.contains("tunnel") || sysName.contains("loopback")
+                    || sysName.contains("vmnet") || sysName.contains("veth") || sysName.contains("br-")
+                    || sysName.contains("hyper-v")) {
+                    continue; // skip virtual interfaces / tunnels / loopbacks / docker bridges / wsl-related interfaces
+                }
+
                 Enumeration<InetAddress> addresses = iface.getInetAddresses();
                 while (addresses.hasMoreElements()) {
                     InetAddress addr = addresses.nextElement();
                     if (addr instanceof Inet4Address && addr.isSiteLocalAddress()){
-                        // example: 192.168.x.x or 10.x.x.x
-                        return addr.getHostAddress(); // return the first found LAN IPv4 address
+                        candidates.add(addr);
                     }
                 }
+            }
+            // prefer 192.168.x.x and 10.x.x.x ranges
+            for (InetAddress addr : candidates) {
+                String ip = addr.getHostAddress();
+                if (ip.startsWith("192.168.") || ip.startsWith("10.")) {
+                    return ip; // return the first found LAN IPv4 address
+                }
+            }
+            if (!candidates.isEmpty()) {
+                return candidates.get(0).getHostAddress(); // return first candidate if no preferred range found
             }
         } catch (SocketException e) {
             e.printStackTrace();
@@ -149,6 +184,9 @@ public class ListenServer {
 
     public String getHostIP() {
         return hostIP;
+    }
+    public int getPort() {
+        return port;
     }
 
     private void loadMapCollision(String mapFilePath) {
@@ -202,6 +240,7 @@ public class ListenServer {
         running = true;
         serverSocket = new ServerSocket(port);
         serverSocket.setReuseAddress(true); // quick restart
+        System.out.println("Server listening on " + hostIP + ":" + port);
 
         acceptThread = new Thread(this::acceptLoop, "Server-Accept-Thread");
         acceptThread.setDaemon(true);
