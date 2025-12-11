@@ -24,6 +24,9 @@ import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
+import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import io.github.wizard_arena.net.NetConfig;
 import io.github.wizard_arena.wizardGame;
 
@@ -48,6 +51,13 @@ public class LobbyScreen extends ScreenAdapter {
     private Label ipLabel; // label to show lobby IP
     private String currentLobbyIP; // lobby IP with port
     private String rawHostIP; // raw IP without port
+
+    private SelectBox<String> mapSelect;
+    private String selectedMap = "map1.txt";
+    private static final String [] AVAILABLE_MAPS = {
+        "map1.txt",
+        "map2.txt"
+    };
 
     // debug flag
     private CheckBox debugCheckbox;
@@ -166,6 +176,11 @@ public class LobbyScreen extends ScreenAdapter {
                     if (server != null) {
                         //
                         server.setDebugMode(debugCheckbox != null && debugCheckbox.isChecked());
+
+                        if (mapSelect != null) {
+                            selectedMap = (mapSelect.getSelected());
+                        }
+                        server.setMapFile(selectedMap);
                         server.sendStartGame();
                     }
                 }
@@ -180,6 +195,24 @@ public class LobbyScreen extends ScreenAdapter {
         // assemble right panel
         rightPanel.top().right();
         rightPanel.add(topBar).growX().top().row();
+
+        if (isHost) {
+            Label mapLabel = new Label("Select Map:", skin);
+            mapSelect = new SelectBox<>(skin);
+            mapSelect.setItems(AVAILABLE_MAPS);
+            mapSelect.setSelected(selectedMap);
+            mapSelect.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    selectedMap = mapSelect.getSelected();
+                }
+            });
+
+            Table mapTable = new Table(skin);
+            mapTable.add(mapLabel).left().padRight(8f);
+            mapTable.add(mapSelect).left().width(200f);
+            rightPanel.add(mapTable).left().padTop(10f).row();
+        }
 
         // debug checkbox (only for host)
         if (isHost) {
@@ -232,12 +265,14 @@ public class LobbyScreen extends ScreenAdapter {
 
             } else if (msg instanceof Messages.StartGame) {
                 // server indicates to start the game
+                Messages.StartGame start = (Messages.StartGame) msg;
                 final boolean hostFlag = isHost;
+                final String mapFile = start.mapFile;
                 Gdx.app.postRunnable(() -> {
                     if (hostFlag) {
-                        game.setScreen(new PlayScreen(game, server, client));
+                        game.setScreen(new PlayScreen(game, server, client, mapFile));
                     } else {
-                        game.setScreen(new PlayScreen(game, client));
+                        game.setScreen(new PlayScreen(game, client, mapFile));
                     }
                 });
                 return;
@@ -322,6 +357,15 @@ public class LobbyScreen extends ScreenAdapter {
         scrollPaneStyle.vScroll = null; // no scroll bar for now, may add later
         scrollPaneStyle.vScrollKnob = null;
         skin.add("default", scrollPaneStyle);
+
+        // select box style
+        SelectBox.SelectBoxStyle selectBoxStyle = new SelectBox.SelectBoxStyle();
+        selectBoxStyle.font = font;
+        selectBoxStyle.fontColor = Color.WHITE;
+        selectBoxStyle.background = new TextureRegionDrawable(new TextureRegion(white)).tint(new Color(0.15f, 0.15f, 0.15f, 1f));
+        selectBoxStyle.scrollStyle = scrollPaneStyle;
+        selectBoxStyle.listStyle = listStyle;
+        skin.add("default", selectBoxStyle);
 
         // checkbox style
         CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();

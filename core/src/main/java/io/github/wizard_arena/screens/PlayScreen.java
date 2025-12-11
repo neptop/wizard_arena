@@ -39,6 +39,7 @@ public class PlayScreen extends ScreenAdapter {
     private Player player;
     private boolean hudOpen;
     private Map<Integer, Player> playerSprites = new HashMap<>(); // clientId to Player sprite
+    private String mapFile = "map1.txt"; // default map file
 
     // player wizard sprite textures
     private Texture redWizardTexture;
@@ -68,6 +69,9 @@ public class PlayScreen extends ScreenAdapter {
     private float postRoundTimeRemaining = 0f;
     private int roundWinnerId = -1;
     private int matchWinnerId = -1;
+    private String roundWinnerName = null;
+    private String matchWinnerName = null;
+    private Map<Integer, String> playerNames = new HashMap<>();
 
     // ui stuff
     private BitmapFont font;
@@ -129,14 +133,14 @@ public class PlayScreen extends ScreenAdapter {
     private static final float LAVA_WARNING_DURATION = 3f; // seconds
 
     // host constructor
-    public PlayScreen(wizardGame game, ListenServer server, Client client) {
+    public PlayScreen(wizardGame game, ListenServer server, Client client, String mapFile) {
         this.game = game;
         this.isHost = true;
         this.server = server;
         this.client = client;
+        this.mapFile = mapFile;
 
         hudOpen = false;
-
 
         initialize();
     }
@@ -157,12 +161,12 @@ public class PlayScreen extends ScreenAdapter {
     }
 
     // already connected constructor
-    public PlayScreen(wizardGame game, Client client) {
+    public PlayScreen(wizardGame game, Client client, String mapFile) {
         this.game = game;
         this.isHost = false;
         this.client = client;
         this.server = null;
-
+        this.mapFile = mapFile;
 
         initialize();
     }
@@ -202,8 +206,7 @@ public class PlayScreen extends ScreenAdapter {
         greenWizardTexture = new Texture(Gdx.files.internal("green_wizard.png"));
         yellowWizardTexture = new Texture(Gdx.files.internal("yellow_wizard.png"));
 
-        FileHandle file;
-        file = Gdx.files.internal("map1.txt");
+        FileHandle file = Gdx.files.internal(mapFile);
         String text = file.readString();
 
         String[] lines = text.split("\\r?\\n");
@@ -222,7 +225,7 @@ public class PlayScreen extends ScreenAdapter {
             for(int j = 0 ; j < map_width ; j++) {
                 char c = line.charAt(j);
                 Texture curr_tile;
-                if(c == 'P') {
+                if(c == 'P'|| c == 'U' || c == 'S') {
                     curr_tile = floor;
                 } else if (c == 'X' ) {
                     curr_tile = wall;
@@ -230,7 +233,7 @@ public class PlayScreen extends ScreenAdapter {
                 else {
                     curr_tile = floor;
                 }
-                tiles[i][j] = new Tile(game, i, j, curr_tile, (c == 'P' || c == 'O') );
+                tiles[i][j] = new Tile(game, i, j, curr_tile, (c == 'P' || c == 'O' || c == 'S' || c == 'U'));
             }
         }
 
@@ -347,6 +350,14 @@ public class PlayScreen extends ScreenAdapter {
                 roundWinnerId = s.roundWinnerId;
                 matchWinnerId = s.matchWinnerId;
                 postRoundTimeRemaining = s.postRoundTimeRemaining;
+
+                // update player names
+                if (s.playerNames != null) {
+                    playerNames.clear();
+                    playerNames.putAll(s.playerNames);
+                }
+                roundWinnerName = s.roundWinnerName;
+                matchWinnerName = s.matchWinnerName;
 
                 // update lava state
                 lavaActive = s.lavaActive;
@@ -661,9 +672,11 @@ public class PlayScreen extends ScreenAdapter {
         // winner text
         String winnerText;
         if (roundState == 3 && matchWinnerId != -1){
-            winnerText = "Player " + matchWinnerId + " wins the match!";
+            String name = (matchWinnerName != null && !matchWinnerName.trim().isEmpty()) ? matchWinnerName : getPlayerNameById(matchWinnerId);
+            winnerText = "Player " + matchWinnerId + " (" + name + ") wins the match!";
         } else if (roundWinnerId != -1) {
-            winnerText = "Player " + roundWinnerId + " wins the round!";
+            String name = (roundWinnerName != null && !roundWinnerName.trim().isEmpty()) ? roundWinnerName : getPlayerNameById(roundWinnerId);
+            winnerText = "Player " + roundWinnerId + " (" + name + ") wins the round!";
         } else {
             winnerText = "Round ended in a draw!";
         }
@@ -676,7 +689,7 @@ public class PlayScreen extends ScreenAdapter {
         int rank = 1;
         for (Map.Entry<Integer, Player> entry : entries) {
             Player player = entry.getValue();
-            String lbLine = rank + ". Player " + entry.getKey() + " - Rounds Won: " + player.getRoundsWon();
+            String lbLine = rank + ". Player " + getPlayerNameById(entry.getKey()) + " - Rounds Won: " + player.getRoundsWon();
             font.draw(game.batch, lbLine, centerX - 150, leaderboardY);
             leaderboardY -= 20;
             rank++;
@@ -880,6 +893,14 @@ public class PlayScreen extends ScreenAdapter {
         }
 
         console.print("unknown command: " + line);
+    }
+
+    private String getPlayerNameById(int id) {
+        String name = playerNames.get(id);
+        if (name == null || name.trim().isEmpty()) {
+            return "Player " + id;
+        }
+        return name;
     }
 
     private Texture getWizTextById(int id) {

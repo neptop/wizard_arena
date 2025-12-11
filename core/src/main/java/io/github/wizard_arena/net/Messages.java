@@ -1,6 +1,7 @@
 package io.github.wizard_arena.net;
 
 import java.io.Serializable;
+import java.util.Map;
 import java.util.List;
 
 public class Messages {
@@ -65,6 +66,10 @@ public class Messages {
         public float lavaCenterX;
         public float lavaCenterY;
         public float lavaRadius;
+
+        public Map<Integer, String> playerNames; // mapping of player IDs to names
+        public String roundWinnerName;
+        public String matchWinnerName;
 
         public Snapshot() {}
     }
@@ -251,7 +256,12 @@ public class Messages {
     }
 
     public static class StartGame implements Msg {
+        public String mapFile;
         public StartGame() {}
+
+        public StartGame(String mapFile) {
+            this.mapFile = mapFile;
+        }
     }
 
     public static class DamageRequest implements Msg {

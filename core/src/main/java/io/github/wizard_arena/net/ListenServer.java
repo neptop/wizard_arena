@@ -20,6 +20,8 @@ public class ListenServer {
 
     private float tileSize = 64;
 
+    private String currentMapFile = "map1.txt";
+
     private static final int MAX_CLIENTS = 4;
     private final int port;
     private final String hostIP;
@@ -32,7 +34,6 @@ public class ListenServer {
     private final Map<Integer, String> playerNames = new ConcurrentHashMap<>();
 
     private static final float BLINK_COOLDOWN = 2.0f; // seconds
-    private static final float BLINK_DISTANCE = 200f; // units
 
     private static final float MAX_HP = 100f;
     private final Set<Integer> godModePlayers = ConcurrentHashMap.newKeySet();
@@ -40,12 +41,27 @@ public class ListenServer {
     private final Map<Integer, PlayerState> players = new ConcurrentHashMap<>(); // Map of clientId to PlayerState
     private final List<ProjectileState> projectiles = Collections.synchronizedList(new ArrayList<>()); // List of active projectiles
 
-    private final List<SpawnPoint> spawnPoints;
+    private final List<SpawnPoint> spawnPoints = new ArrayList<>();
+    private final List<SpawnPoint> spellSpawnPoints = new ArrayList<>();
+    private final List<SpawnPoint> powerupSpawnPoints = new ArrayList<>();
     private final Random random = new Random();
 
     private static final int MAX_SPELL_SLOTS = 4;
     private final Map<Integer, BaseSpell[]> playerSpellInventories = new ConcurrentHashMap<>();
     private final AtomicInteger nextProjectileId = new AtomicInteger(1);
+
+    private static final String[] MAP_SPELL_TYPES = {
+            "starter",
+            "poison",
+            "fire",
+            "lightning"
+    };
+
+    private static final String[] MAP_POWERUP_TYPES = {
+            "speed",
+            "overdrive",
+            "health"
+    };
 
     private final List<SpellPickupState> spellPickups = Collections.synchronizedList(new ArrayList<>());
     private final AtomicInteger nextPickupId = new AtomicInteger(1);
@@ -62,7 +78,6 @@ public class ListenServer {
     private static final float TILE_SIZE = 64f;
     private static final float PLAYER_SIZE = 48f;
     private static final float PROJECTILE_SIZE = 32f;
-
 
     private volatile boolean debugMode = false;
 
@@ -123,8 +138,7 @@ public class ListenServer {
     public ListenServer() {
         this.port = findOpenPort(NetConfig.MIN_TCP_PORT, NetConfig.MAX_TCP_PORT);
         this.hostIP = detectHostIP();
-        this.spawnPoints = MapLoader.loadSpawnPoints("map1.txt");
-        loadMapCollision("map1.txt");
+        setMapFile(currentMapFile);
     }
 
     // helper method to find an open port in the given range
@@ -192,8 +206,27 @@ public class ListenServer {
         return port;
     }
 
+    public String getMapFile() {
+        return currentMapFile;
+    }
+
+    public synchronized void setMapFile(String mapFilePath) {
+        this.currentMapFile = mapFilePath;
+        MapLoader.MapSpawns spawns = MapLoader.loadSpawns(mapFilePath);
+
+        spawnPoints.clear();
+        spawnPoints.addAll(spawns.playerSpawns);
+        spellSpawnPoints.clear();
+        spellSpawnPoints.addAll(spawns.spellSpawns);
+        powerupSpawnPoints.clear();
+        powerupSpawnPoints.addAll(spawns.powerupSpawns);
+
+        loadMapCollision(mapFilePath);
+        System.out.println("Server map set to " + mapFilePath);
+    }
+
     private void loadMapCollision(String mapFilePath) {
-        FileHandle file = new FileHandle(mapFilePath);
+        FileHandle file = Gdx.files.internal(mapFilePath);
         String text = file.readString();
         String[] lines = text.split("\\r?\\n");
 
@@ -219,6 +252,16 @@ public class ListenServer {
         }
         System.out.println("Loaded map collision from " + mapFilePath);
         System.out.println("Map size: " + mapWidth + "x" + mapHeight);
+    }
+
+    private String getRandomMapSpellType() {
+        if (MAP_SPELL_TYPES.length == 0) return "starter";
+        return MAP_SPELL_TYPES[random.nextInt(MAP_SPELL_TYPES.length)];
+    }
+
+    private String getRandomMapPowerupType() {
+        if (MAP_POWERUP_TYPES.length == 0) return "speed";
+        return MAP_POWERUP_TYPES[random.nextInt(MAP_POWERUP_TYPES.length)];
     }
 
     private boolean projectileHitsWall(float x, float y, float size) {
@@ -577,19 +620,10 @@ public class ListenServer {
             prevTime = now;
             tick++;
 
-            // update round logic
             updateGame(dt);
-
-            // update powerup timers
             updatePowerupTimers(dt);
-
-            // update spells
             updateSpells(dt);
-
-            // update status effects
             updateStatusEffects(dt);
-
-            // update projectiles
             updateProjectiles(dt);
 
             snapshotAccumulator += 1.0;
@@ -638,6 +672,16 @@ public class ListenServer {
         snapshot.lavaCenterY = lavaCenterY;
         snapshot.lavaRadius = lavaRadius;
         lavaJustStarted = false; // reset after sending *should only be true for one snapshot*
+
+        snapshot.playerNames = new HashMap<>(playerNames);
+
+        if (lastRoundWinnerId != -1) {
+            snapshot.roundWinnerName = playerNames.get(lastRoundWinnerId);
+        }
+
+        if (matchWinnerId != -1) {
+            snapshot.matchWinnerName = playerNames.get(matchWinnerId);
+        }
 
         for (ClientHandler client : clients.values()) {
             sendTo(client, snapshot);
@@ -705,7 +749,7 @@ public class ListenServer {
             startNewRound();
         }
 
-        StartGame startGame = new StartGame();
+        StartGame startGame = new StartGame(currentMapFile);
         for (ClientHandler client : clients.values()) {
             sendTo(client, startGame);
         }
@@ -1267,8 +1311,6 @@ public class ListenServer {
             }
         }
 
-
-
         // reset lava
         lavaActive = false;
         lavaJustStarted = false;
@@ -1284,6 +1326,43 @@ public class ListenServer {
             p.alive = true;
             p.blinkCooldown = 0f;
             p.roundsWon = winCount.getOrDefault(p.id, 0);
+        }
+
+        // reset projectiles
+        synchronized (projectiles) {
+            projectiles.clear();
+        }
+
+        // reset spell pickups
+        synchronized (spellPickups) {
+            spellPickups.clear();
+            for (SpawnPoint sp : spellSpawnPoints) {
+                int pickupId = nextPickupId.getAndIncrement();
+                String spellType = getRandomMapSpellType();
+                SpellPickupState sps = new SpellPickupState(
+                        pickupId,
+                        sp.x,
+                        sp.y,
+                        spellType
+                );
+                spellPickups.add(sps);
+            }
+        }
+
+        // reset powerups
+        synchronized (powerups) {
+            powerups.clear();
+            for (SpawnPoint sp : powerupSpawnPoints) {
+                int pickupId = nextPowerupId.getAndIncrement();
+                String powerupType = getRandomMapPowerupType();
+                PowerupState pus = new PowerupState(
+                    pickupId,
+                    sp.x,
+                    sp.y,
+                    powerupType
+                );
+                powerups.add(pus);
+            }
         }
 
         currentRoundState = RoundState.IN_PROGRESS;
