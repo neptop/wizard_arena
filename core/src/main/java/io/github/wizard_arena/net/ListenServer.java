@@ -3,8 +3,10 @@ package io.github.wizard_arena.net;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.Rectangle;
 import io.github.wizard_arena.MapLoader;
 import io.github.wizard_arena.SpawnPoint;
+import io.github.wizard_arena.Tile;
 import io.github.wizard_arena.net.Messages.*;
 import io.github.wizard_arena.spells.*;
 import java.io.*;
@@ -54,6 +56,7 @@ public class ListenServer {
     private static final float POWERUP_PICKUP_RADIUS = 64f;
 
     private boolean[][] wallGrid;
+    private Tile[][] tileMap;
     private int mapWidth;
     private int mapHeight;
     private static final float TILE_SIZE = 64f;
@@ -193,16 +196,25 @@ public class ListenServer {
         FileHandle file = new FileHandle(mapFilePath);
         String text = file.readString();
         String[] lines = text.split("\\r?\\n");
+
+        List<String> list = Arrays.asList(lines);
+        Collections.reverse(list);
         mapHeight = lines.length;
         mapWidth = lines[0].length();
-        wallGrid = new boolean[mapWidth][mapHeight];
-        for (int row = 0; row < mapHeight; row++) {
-            String line = lines[row];
-            for (int col = 0; col < mapWidth; col++) {
-                char tileChar = line.charAt(col);
+        wallGrid = new boolean[mapHeight][mapWidth];
+
+        for (int col = 0; col < mapHeight; col++) {
+            String line = lines[col];
+            System.out.println(line);
+            for (int row = 0; row < mapWidth; row++) {
+
+
+                char tileChar = line.charAt(row);
+
                 if (tileChar == 'X') {
                     wallGrid[col][row] = true; // X denotes a wall
                 }
+
             }
         }
         System.out.println("Loaded map collision from " + mapFilePath);
@@ -213,13 +225,15 @@ public class ListenServer {
         if (wallGrid == null) return false;
         float centerX = x + size / 2f;
         float centerY = y + size / 2f;
+        Rectangle ballRect = new Rectangle(x, y, size, size);
         int tileX = (int)(centerX / TILE_SIZE);
         int tileY = (int)(centerY / TILE_SIZE);
 
         for (int ty = tileY - 1; ty <= tileY + 1; ty++) {
             for (int tx = tileX - 1; tx <= tileX + 1; tx++) {
+                Rectangle adjTile = new Rectangle(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE);
                 if (tx >= 0 && tx < mapWidth && ty >= 0 && ty < mapHeight) {
-                    if (wallGrid[tx][ty]) {
+                    if (wallGrid[ty][tx] && ballRect.overlaps(adjTile)) {
                         return true;
                     }
                 }
@@ -385,10 +399,11 @@ public class ListenServer {
                                                 boolean overdrive = (p.overdriveDuration > 0f);
                                                 if (overdrive || spell.canCast()) {
                                                     int projectileId = nextProjectileId.getAndIncrement();
-                                                    spell.spawnProjectile(projectiles, p, iu.aimX, iu.aimY, projectileId);
                                                     if (!overdrive) {
                                                         spell.onCast(); // start cooldown if overdrive powerup not active
                                                     }
+                                                    spell.spawnProjectile(projectiles, p, wallGrid, iu.aimX, iu.aimY, projectileId);
+
                                                     System.out.println("player " + clientId + " spawned projectile " + projectileId + " from spell slot " + p.selectedSpellSlot);
                                                 }
                                             }

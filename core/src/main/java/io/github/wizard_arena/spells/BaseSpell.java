@@ -1,13 +1,17 @@
 package io.github.wizard_arena.spells;
 
+import com.badlogic.gdx.math.Rectangle;
 import io.github.wizard_arena.net.Messages.*;
 import java.util.List;
+
+
+
 
 public abstract class BaseSpell {
     private final float cooldownTime;
     private float cooldownTimer = 0f;
 
-    private static final float SPAWN_OFFSET = 80f; // offset to spawn projectile in front of caster
+    private static final float SPAWN_OFFSET = 64f; // offset to spawn projectile in front of caster
 
     public BaseSpell(float cooldownTime) {
         this.cooldownTime = cooldownTime;
@@ -18,8 +22,9 @@ public abstract class BaseSpell {
     public void update(float dt){
         if (cooldownTimer > 0f) {
             cooldownTimer -= dt;
-            if (cooldownTimer < 0f) cooldownTimer = 0f;
+
         }
+        if (cooldownTimer < 0f) cooldownTimer = 0f;
     }
 
     public boolean canCast() {
@@ -49,6 +54,7 @@ public abstract class BaseSpell {
     protected void spawnBasicProjectile(
         List<ProjectileState> projectiles,
         PlayerState caster,
+        boolean [][] wallGrid,
         float aimX,
         float aimY,
         int projectileId,
@@ -67,24 +73,49 @@ public abstract class BaseSpell {
         float velY = dirY * projectileSpeed;
         float spawnX = caster.x + dirX * SPAWN_OFFSET;
         float spawnY = caster.y + dirY * SPAWN_OFFSET;
+        float spellSize = SPAWN_OFFSET / 2f;
 
-        ProjectileState proj = new ProjectileState(
-            projectileId,
-            spawnX,
-            spawnY,
-            velX,
-            velY
-        );
-        proj.ownerId = caster.id;
-        proj.damage = getDamage();
-        proj.spellType = getTypeId();
-        proj.piercing = isPiercing();
-        projectiles.add(proj);
+
+        float centerX = spawnX + spellSize / 2f;
+        float centerY = spawnY + spellSize / 2f;
+        Rectangle ballRect = new Rectangle(spawnX,spawnY, spellSize, spellSize);
+        int TILE_SIZE = 64;
+        int tileX = (int)(centerX / TILE_SIZE);
+        int tileY = (int)(centerY / TILE_SIZE);
+
+        boolean spawnProjectile = true;
+        for (int ty = tileY - 1; ty <= tileY + 1; ty++) {
+            for (int tx = tileX - 1; tx <= tileX + 1; tx++) {
+                Rectangle adjTile = new Rectangle(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                if (wallGrid[ty][tx] && ballRect.overlaps(adjTile)) {
+                    spawnProjectile = false;
+                }
+            }
+        }
+
+
+        if(spawnProjectile) {
+            ProjectileState proj = new ProjectileState(
+                projectileId,
+                spawnX,
+                spawnY,
+                velX,
+                velY
+            );
+            proj.ownerId = caster.id;
+            proj.damage = getDamage();
+            proj.spellType = getTypeId();
+            proj.piercing = isPiercing();
+            projectiles.add(proj);
+        }
+        else cooldownTimer = 0f;
     }
+
 
     public abstract void spawnProjectile(
         List<ProjectileState> projectiles,
         PlayerState caster,
+        boolean[][] wallGrid,
         float aimX,
         float aimY,
         int projectileId);

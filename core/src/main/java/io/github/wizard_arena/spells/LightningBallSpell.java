@@ -29,12 +29,14 @@ public class LightningBallSpell extends BaseSpell {
     public void spawnProjectile(
         List<ProjectileState> projectiles,
         PlayerState caster,
+        boolean [][] wallGrid,
         float aimX,
         float aimY,
         int projectileId) {
         spawnBasicProjectile(
             projectiles,
             caster,
+            wallGrid,
             aimX,
             aimY,
             projectileId,
