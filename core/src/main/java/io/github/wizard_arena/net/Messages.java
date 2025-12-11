@@ -92,6 +92,9 @@ public class Messages {
         public float combinedDotDuration;
         public float dotTickTimer;
 
+        public float[] spellCooldownRemaining;
+        public float[] spellCooldownMax;
+
         public String[] spellSlots;
 
         public PlayerState(int id, float x, float y, float hp) {
@@ -119,6 +122,10 @@ public class Messages {
 
             // 4 spell slots
             this.spellSlots = new String[4];
+
+            // spell cooldowns
+            this.spellCooldownRemaining = new float[4];
+            this.spellCooldownMax = new float[4];
         }
     }
 

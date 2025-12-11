@@ -923,10 +923,25 @@ public class ListenServer {
     }
 
     private void updateSpells(float dt){
-        for (BaseSpell[] inv : playerSpellInventories.values()) {
-            for (BaseSpell spell : inv) {
+        for (Map.Entry<Integer, BaseSpell[]> entry : playerSpellInventories.entrySet()) {
+            int playerId = entry.getKey();
+            PlayerState ps = players.get(playerId);
+            if (ps == null) continue;
+
+            BaseSpell [] inv = entry.getValue();
+            for (int i = 0; i < MAX_SPELL_SLOTS; i++) {
+                BaseSpell spell = inv[i];
                 if (spell != null) {
                     spell.update(dt);
+
+                    // sync spell types and cooldowns to player state
+                    ps.spellSlots[i] = spell.getTypeId();
+                    ps.spellCooldownRemaining[i] = spell.getCooldownTimer();
+                    ps.spellCooldownMax[i] = spell.getCooldownTime();
+                } else {
+                    ps.spellSlots[i] = null;
+                    ps.spellCooldownRemaining[i] = 0f;
+                    ps.spellCooldownMax[i] = 0f;
                 }
             }
         }

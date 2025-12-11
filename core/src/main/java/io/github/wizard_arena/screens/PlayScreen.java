@@ -322,6 +322,7 @@ public class PlayScreen extends ScreenAdapter {
                         p.setAlive(ps.alive);
                         p.setRoundsWon(ps.roundsWon);
                         p.setSpellSlots(ps.spellSlots);
+                        p.setSpellCooldowns(ps.spellCooldownRemaining, ps.spellCooldownMax);
                     } else {
                         // remote player, directly set position
                         p.startInter(ps.x, ps.y);

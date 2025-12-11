@@ -486,4 +486,10 @@ public class Player extends Sprite {
         // update hotbar
         hotbar.setSpellTypes(spellSlots);
     }
+
+    public void setSpellCooldowns(float[] remaining, float[] max) {
+        if (hotbar != null) {
+            hotbar.setCooldowns(remaining, max);
+        }
+    }
 }
