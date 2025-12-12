@@ -27,6 +27,7 @@ public class Hotbar extends Actor {
     private Texture poisonBallTex;
     private Texture fireBallTex;
     private Texture lightningBallTex;
+    private Texture airBallTex;
 
     public Hotbar(float x, float y){
         hotbarTexture = new Texture(Gdx.files.internal("hotbar.png"));
@@ -36,6 +37,8 @@ public class Hotbar extends Actor {
         poisonBallTex = new Texture(Gdx.files.internal("poison_ball.png"));
         fireBallTex = new Texture(Gdx.files.internal("fireball_spell_icon.png"));
         lightningBallTex = new Texture(Gdx.files.internal("lightning_ball.png"));
+        airBallTex = new Texture(Gdx.files.internal("ball.png"));
+
 
         setPosition(Gdx.graphics.getWidth() - 288, 0);
 
@@ -97,6 +100,8 @@ public class Hotbar extends Actor {
                 case "lightning":
                     spellTex = lightningBallTex;
                     break;
+                case "air":
+                    spellTex = airBallTex;
                 default:
                     break;
             }

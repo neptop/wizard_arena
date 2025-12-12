@@ -98,6 +98,11 @@ public class Messages {
         public boolean inLava;
         public float lavaTickTimer;
 
+        // knockback tracking
+        public float knockbackX;
+        public float knockbackY;
+        public boolean isKnockback;
+
         // debuff/ DOT tracking
         public float poisonDuration;
         public float burnDuration;
@@ -123,6 +128,12 @@ public class Messages {
             this.selectedSpellSlot = 0;
             this.speedMultiplier = 1.0f;
             this.overdriveDuration = 0f;
+
+            // knockback
+            this.knockbackX = 0f;
+            this.knockbackY = 0f;
+            this.isKnockback = false;
+
             this.currentAnimationID = 0;
             // debuffs
             this.poisonDuration = 0f;
