@@ -1272,6 +1272,10 @@ public class ListenServer {
             if (p.speedMultiplier != 1.5f && p.frostDuration > 0f){
                 changePlayerSpeed(p.id, 0.5f);
             }
+            else if(p.speedMultiplier != 1.5f) {
+                changePlayerSpeed(p.id, 1.0f);
+            }
+
         }
     }
 
