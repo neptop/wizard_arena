@@ -340,6 +340,7 @@ public class PlayScreen extends ScreenAdapter {
                         p.setHealth(ps.hp); // update health
                         p.hudHealthBar.setHealthRatio(ps.hp, p.maxHealth); // update health bar
                         p.playerHealthBar.setHealthRatio(ps.hp, p.maxHealth);
+                        p.playerBlinkBar.setBlinkRatio(p.blinkTimer * 70, p.maxBlinkBar);
                         p.setAlive(ps.alive);
                         p.setRoundsWon(ps.roundsWon);
                         p.setSpellSlots(ps.spellSlots);
@@ -504,6 +505,7 @@ public class PlayScreen extends ScreenAdapter {
 
             // draw each players' health bar under them
             p.playerHealthBar.draw(game.batch, 1);
+
         }
 
         // draw projectiles
@@ -616,6 +618,7 @@ public class PlayScreen extends ScreenAdapter {
         hudBatch.begin();
 
         player.hudHealthBar.draw(hudBatch, 1);
+        player.playerBlinkBar.draw(hudBatch, 1);
         player.hotbar.draw(hudBatch, 1);
         player.hotbar.hotbarSelectedSprite.draw(hudBatch);
 
