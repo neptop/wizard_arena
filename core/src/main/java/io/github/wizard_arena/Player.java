@@ -36,7 +36,8 @@ public class Player extends Sprite {
     //  Blink Stuff
     private static final float BLINK_DISTANCE = 4f; //  corresponds to number of tiles
 
-    private float blinkTimer = 0f;
+    public float blinkTimer = 0f;
+    public float maxBlinkBar = 150f;
     public boolean blinked;
     private boolean canBlink; // input flag to send to server
 
@@ -66,6 +67,7 @@ public class Player extends Sprite {
     // ui
     public HealthBar hudHealthBar;
     public HealthBar playerHealthBar;
+    public BlinkBar playerBlinkBar;
     public Hotbar hotbar;
     InputCore ic;
     Texture roundWonEmpty;
@@ -356,11 +358,10 @@ public class Player extends Sprite {
         }
 
         boolean cast = Gdx.input.isButtonJustPressed(Buttons.LEFT);
-        if(cast && currentAnimation != attackAnimation) {
-            currentAnimation = attackAnimation;
+        if(cast)
             currentAnimationID = 1;
-            stateTime = 0f;
-        }
+
+
         boolean pickUpSpell = Gdx.input.isKeyJustPressed(Input.Keys.E);
 
         // send input to server
@@ -419,6 +420,7 @@ public class Player extends Sprite {
                     setX(getX() + input.moveX * speed * input.dt);
                     setY(getY() + input.moveY * speed * input.dt);
                 }
+
                 // reapply blink if it was used
                 i++;
             }
@@ -461,8 +463,9 @@ public class Player extends Sprite {
     }
 
     private void createHealthBars(){
-        this.hudHealthBar = new HealthBar(120, Gdx.graphics.getHeight() - 96, 408, 64);
+        this.hudHealthBar = new HealthBar(100, Gdx.graphics.getHeight() - 60, 408, 50);
         this.playerHealthBar = new HealthBar(getX(), getY() - 32, 64, 16);
+        this.playerBlinkBar = new BlinkBar(100, hudHealthBar.getY() - hudHealthBar.getHeight(), 150, 45);
     }
 
     // rotates the sprite to point toward crosshair

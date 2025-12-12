@@ -329,6 +329,7 @@ public class PlayScreen extends ScreenAdapter {
                 Set<Integer> updatedPlayerIds = new HashSet<>();
 
                 for (PlayerState ps : s.players) {
+
                     updatedPlayerIds.add(ps.id);
                     Player p = playerSprites.get(ps.id);
                     if (p == null) {
@@ -345,12 +346,12 @@ public class PlayScreen extends ScreenAdapter {
                     }
 
                     if (ps.id == client.clientId) {
-
                         // this is the local player, so apply server reconciliation
                         p.applyServerState(ps.x, ps.y, ps.lastProcessedInput);
                         p.setHealth(ps.hp); // update health
                         p.hudHealthBar.setHealthRatio(ps.hp, p.maxHealth); // update health bar
                         p.playerHealthBar.setHealthRatio(ps.hp, p.maxHealth);
+                        p.playerBlinkBar.setBlinkRatio(p.blinkTimer * 70, p.maxBlinkBar);
                         p.setAlive(ps.alive);
                         p.setRoundsWon(ps.roundsWon);
                         p.setSpellSlots(ps.spellSlots);
@@ -365,6 +366,7 @@ public class PlayScreen extends ScreenAdapter {
                         p.lookAngle = ps.lookAngle;
                         p.setRotation(ps.lookAngle);
                         p.setHasShield(ps.hasShield);
+
 
 
                         p.currentAnimationID = ps.currentAnimationID;
@@ -411,6 +413,7 @@ public class PlayScreen extends ScreenAdapter {
                 Set<Integer> updatedProjectileIds = new HashSet<>();
                 if (s.projectiles != null){
                     for (ProjectileState ps : s.projectiles) {
+
                         updatedProjectileIds.add(ps.id);
                         ProjectileRender pr = projectileSprites.get(ps.id);
                         if (pr == null) {
@@ -516,6 +519,7 @@ public class PlayScreen extends ScreenAdapter {
 
             // draw each players' health bar under them
             p.playerHealthBar.draw(game.batch, 1);
+
         }
 
         // draw projectiles
@@ -668,6 +672,7 @@ public class PlayScreen extends ScreenAdapter {
         hudBatch.begin();
 
         player.hudHealthBar.draw(hudBatch, 1);
+        player.playerBlinkBar.draw(hudBatch, 1);
         player.hotbar.draw(hudBatch, 1);
         player.hotbar.hotbarSelectedSprite.draw(hudBatch);
 
