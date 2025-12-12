@@ -86,6 +86,7 @@ public class PlayScreen extends ScreenAdapter {
     private Texture poisonBallTexture;
     private Texture fireBallTexture;
     private Texture lightningBallTexture;
+    private Texture airBallTexture;
 
     private static class ProjectileRender {
         public float x;
@@ -103,7 +104,7 @@ public class PlayScreen extends ScreenAdapter {
 
     // valid cheat spell names
     private static final Set<String> validSpellNames = new HashSet<>(Arrays.asList(
-        "starter", "poison", "fire", "lightning"
+        "starter", "poison", "fire", "lightning", "air"
     ));
 
     // powerup pickups
@@ -190,6 +191,7 @@ public class PlayScreen extends ScreenAdapter {
         poisonBallTexture = new Texture(Gdx.files.internal("poison_ball_projectile.png"));
         fireBallTexture = new Texture(Gdx.files.internal("fireball_projectile.png"));
         lightningBallTexture = new Texture(Gdx.files.internal("lightning_ball_projectile.png"));
+        airBallTexture = new Texture(Gdx.files.internal("ball.png"));
 
         spellScrollTexture = new Texture(Gdx.files.internal("scroll.png"));
 
@@ -474,6 +476,9 @@ public class PlayScreen extends ScreenAdapter {
                         break;
                     case "lightning":
                         projectileTexture = lightningBallTexture;
+                        break;
+                    case "air":
+                        projectileTexture = airBallTexture;
                         break;
                     default:
                         projectileTexture = starterBallTexture; // default

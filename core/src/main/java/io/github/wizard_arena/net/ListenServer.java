@@ -54,7 +54,8 @@ public class ListenServer {
             "starter",
             "poison",
             "fire",
-            "lightning"
+            "lightning",
+            "air"
     };
 
     private static final String[] MAP_POWERUP_TYPES = {
@@ -118,6 +119,9 @@ public class ListenServer {
     private float lavaCenterY;
     private float lavaRadius;
     private float lavaInitialRadius = LAVA_INITIAL_RADIUS;
+
+    // knockback speed
+    private static final float AIR_PUSH_SPEED = 800f;
 
     private static class ClientHandler {
         final int clientId;
@@ -264,6 +268,33 @@ public class ListenServer {
         return MAP_POWERUP_TYPES[random.nextInt(MAP_POWERUP_TYPES.length)];
     }
 
+    private boolean playerHitsWall(float x, float y){
+        if (wallGrid == null) return false;
+        Rectangle r = new Rectangle(x, y, PLAYER_SIZE, PLAYER_SIZE);
+
+        int minTileX = (int)(x / TILE_SIZE) - 1;
+        int maxTileX = (int)((x + PLAYER_SIZE) / TILE_SIZE) + 1;
+        int minTileY = (int)(y / TILE_SIZE) - 1;
+        int maxTileY = (int)((y + PLAYER_SIZE) / TILE_SIZE) + 1;
+
+        minTileX = Math.max(0, minTileX);
+        maxTileX = Math.min(mapWidth - 1, maxTileX);
+        minTileY = Math.max(0, minTileY);
+        maxTileY = Math.min(mapHeight - 1, maxTileY);
+
+        for (int ty = minTileY; ty <= maxTileY; ty++) {
+            for (int tx = minTileX; tx <= maxTileX; tx++) {
+                if (wallGrid[ty][tx]) {
+                    Rectangle tileRect = new Rectangle(tx * TILE_SIZE, ty * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    if (r.overlaps(tileRect)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     private boolean projectileHitsWall(float x, float y, float size) {
         if (wallGrid == null) return false;
         float centerX = x + size / 2f;
@@ -386,16 +417,18 @@ public class ListenServer {
                                     float speed = baseSpeed * p.speedMultiplier;
                                     float dt = iu.dt;
 
-                                    // movement
-                                    // blink
-                                    if(iu.blink && p.blinkCooldown <= 0f) {
-                                        p.x += iu.moveX * tileSize;
-                                        p.y += iu.moveY * tileSize;
-                                        p.blinkCooldown = BLINK_COOLDOWN;
-                                    }
-                                    else {
-                                        p.x += iu.moveX * speed * dt;
-                                        p.y += iu.moveY * speed * dt;
+                                    // ignore movement inputs if player is knocked back
+                                    if (p.isKnockback) {} else {
+                                        // blink
+                                        if (iu.blink && p.blinkCooldown <= 0f) {
+                                            p.x += iu.moveX * tileSize;
+                                            p.y += iu.moveY * tileSize;
+                                            p.blinkCooldown = BLINK_COOLDOWN;
+                                        } else {
+                                            // movement
+                                            p.x += iu.moveX * speed * dt;
+                                            p.y += iu.moveY * speed * dt;
+                                        }
                                     }
                                     p.blinkCooldown = Math.max(0f, p.blinkCooldown - dt); // reduce blink cooldown
 
@@ -626,6 +659,7 @@ public class ListenServer {
             updateSpells(dt);
             updateStatusEffects(dt);
             updateProjectiles(dt);
+            updateKnockback(dt);
 
             snapshotAccumulator += 1.0;
             if (snapshotAccumulator >= snapshotInterval) {
@@ -918,6 +952,8 @@ public class ListenServer {
                                 applyPoisonDebuff(p);
                             } else if ("fire".equals(proj.spellType)) {
                                 applyBurnDebuff(p);
+                            } else if ("air".equals(proj.spellType)) {
+                                applyAirKnockback(p, proj.vx, proj.vy);
                             }
 
                             // add more spell types here...
@@ -992,6 +1028,44 @@ public class ListenServer {
         }
     }
 
+    private void updateKnockback(float dt) {
+        for (PlayerState p : players.values()) {
+            if (!p.alive) continue;
+            if (!p.isKnockback) continue;
+
+            // apply knockback movement
+            float nextX = p.x + p.knockbackX * dt;
+            float nextY = p.y + p.knockbackY * dt;
+
+            // X axis
+            if(!playerHitsWall(nextX, p.y)) {
+                p.x = nextX;
+            } else {
+                p.knockbackX = 0f;
+                p.knockbackY = 0f;
+                p.isKnockback = false;
+                continue;
+            }
+
+            // Y axis
+            if (!playerHitsWall(p.x, nextY)) {
+                p.y = nextY;
+            } else {
+                p.knockbackX = 0f;
+                p.knockbackY = 0f;
+                p.isKnockback = false;
+                continue;
+            }
+
+            // edge case: check if player is stuck in wall
+            if (playerHitsWall(p.x, p.y)) {
+                p.knockbackX = 0f;
+                p.knockbackY = 0f;
+                p.isKnockback = false;
+            }
+        }
+    }
+
     private void giveSpellToPlayer(int playerId, BaseSpell newSpell, String spellType, float dropX, float dropY){
         BaseSpell[] inv = playerSpellInventories.get(playerId);
         if (inv == null ) return;
@@ -1060,10 +1134,22 @@ public class ListenServer {
                 return new FireBallSpell();
             case "lightning":
                 return new LightningBallSpell();
+            case "air":
+                return new AirBallSpell();
             default:
                 System.out.println("Unknown spell type: " + spellType);
                 return new StarterBallSpell(); // default spell if unknown
         }
+    }
+
+    private void applyAirKnockback(PlayerState p, float projVx, float projVy) {
+        float len = (float)Math.sqrt(projVx * projVx + projVy * projVy);
+        if (len < 0.01f) return;
+        float dirX = projVx / len;
+        float dirY = projVy / len;
+        p.isKnockback = true;
+        p.knockbackX = dirX * AIR_PUSH_SPEED;
+        p.knockbackY = dirY * AIR_PUSH_SPEED;
     }
 
     private void applyPoisonDebuff(PlayerState p) {
