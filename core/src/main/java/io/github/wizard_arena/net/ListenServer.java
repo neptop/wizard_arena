@@ -1003,6 +1003,11 @@ public class ListenServer {
                 inv[i] = newSpell;
                 System.out.println("Gave spell to player " + playerId + " in slot " + i);
 
+                // put spell on cooldown
+                if (newSpell != null) {
+                    newSpell.putOnCooldown();
+                }
+
                 if (ps != null && ps.spellSlots != null && i < ps.spellSlots.length) {
                     ps.spellSlots[i] = spellType; // update spell type for client display
                 }
@@ -1033,6 +1038,11 @@ public class ListenServer {
         }
         inv[selected] = newSpell;
         System.out.println("Replaced spell in slot " + selected + " for player " + playerId + " with " + newSpell);
+
+        // put replaced spell on cooldown
+        if (newSpell != null) {
+            newSpell.putOnCooldown();
+        }
 
         // sync spell type to player state spell slots
         if (ps != null && ps.spellSlots != null && selected < ps.spellSlots.length) {

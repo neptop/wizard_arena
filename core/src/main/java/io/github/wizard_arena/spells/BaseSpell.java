@@ -51,6 +51,10 @@ public abstract class BaseSpell {
         return false;
     }
 
+    public void putOnCooldown() {
+        this.cooldownTimer = this.cooldownTime;
+    }
+
     protected void spawnBasicProjectile(
         List<ProjectileState> projectiles,
         PlayerState caster,
