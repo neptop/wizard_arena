@@ -33,16 +33,14 @@ public class Player extends Sprite {
     public float lookAngle;
 
     //  Blink Stuff
-    private static final float BLINK_TILES = 17f;
-    private static final float BLINK_DISTANCE = 4f;
+    private static final float BLINK_DISTANCE = 4f; //  corresponds to number of tiles
 
     private float blinkTimer = 0f;
     public boolean blinked;
     private boolean canBlink; // input flag to send to server
 
     //  general timer
-    private float stateTime = 0f;
-    private float spellTimer = 0f;
+    public float stateTime = 0f;
 
     //  online stuff
     public Messages.InputUpdate inputUpdate;
@@ -88,18 +86,17 @@ public class Player extends Sprite {
     public int playerSize = 48;
 
     //  Animations
-    float angle = 0f;
+    public float angle = 0f;
     public int id;
 
-    //  player animation sprite sheets
-    private Texture wizardSheet;
-
     //  player animations
-    private Animation<TextureRegion> currentAnimation;
+    public Animation<TextureRegion> currentAnimation;
 
-    private Animation<TextureRegion> idle;
-    private Animation<TextureRegion> attackAnimation;
-    private Animation<TextureRegion> blinkAnimation;
+    public Animation<TextureRegion> idle;
+    public Animation<TextureRegion> attackAnimation;
+    public Animation<TextureRegion> blinkAnimation;
+
+    public int currentAnimationID; //  sent to server to denote remote animations
 
     public Player(wizardGame game, float speed, Client client, int spawnX, int spawnY, Tile[][] map) {
         super(game.assets.get("red_wizard.png", Texture.class));
@@ -283,6 +280,7 @@ public class Player extends Sprite {
             blinkTimer = 2.0f;
             canBlink = true;
             currentAnimation = blinkAnimation;
+            currentAnimationID = 2;
         }
     }
 
@@ -323,7 +321,7 @@ public class Player extends Sprite {
         }
         if((currentAnimation == blinkAnimation && currentAnimation.isAnimationFinished(stateTime))
             || (currentAnimation == attackAnimation && currentAnimation.isAnimationFinished(stateTime))) {
-
+            currentAnimationID = 0;
             currentAnimation = idle;
             stateTime = 0;
         }
@@ -353,6 +351,7 @@ public class Player extends Sprite {
         boolean cast = Gdx.input.isButtonJustPressed(Buttons.LEFT);
         if(cast && currentAnimation != attackAnimation) {
             currentAnimation = attackAnimation;
+            currentAnimationID = 1;
             stateTime = 0f;
         }
         boolean pickUpSpell = Gdx.input.isKeyJustPressed(Input.Keys.E);
@@ -366,7 +365,7 @@ public class Player extends Sprite {
             iu.clientId = (client != null ? client.clientId : -1);
             iu.seq = nextInputSeq++;
             iu.dt = time; // delta time since last input
-
+            iu.currentAnimationID = currentAnimationID;
             iu.aimX = aimX;
             iu.aimY = aimY;
             iu.lookAngle = lookAngle;
@@ -399,7 +398,6 @@ public class Player extends Sprite {
         int i = 0;
         while (i < pendingInputs.size()) {
             Messages.InputUpdate input = pendingInputs.get(i);
-
             if (input.seq <= lastProcessedInput) {
                 // this input has already been processed by the server
                 pendingInputs.remove(i);
@@ -415,7 +413,6 @@ public class Player extends Sprite {
                     setY(getY() + input.moveY * speed * input.dt);
                 }
                 // reapply blink if it was used
-
                 i++;
             }
         }
@@ -534,9 +531,6 @@ public class Player extends Sprite {
         if(currentAnimation == idle || currentAnimation == attackAnimation || currentAnimation == blinkAnimation)  {
             batch.draw(frame, getX(), getY(), tileSize /2f, tileSize/2f, getWidth(), getHeight(), 1f, 1f, angle);
         }
-        else if(!currentAnimation.isAnimationFinished(stateTime)) {
-            batch.draw(frame, getX(), getY(), getWidth(), getHeight());
-        }
     }
 
 
@@ -544,6 +538,8 @@ public class Player extends Sprite {
     public void animatePlayer(int id) {
 
 
+        //  player animation sprite sheets
+        Texture wizardSheet;
         switch (id) {
             case 2:
                 wizardSheet = new Texture("blue_wizard-sheet.png");
@@ -590,6 +586,7 @@ public class Player extends Sprite {
         blinkAnimation.setPlayMode(Animation.PlayMode.REVERSED);
 
 
+        currentAnimationID = 0;
         currentAnimation = idle;
     }
 

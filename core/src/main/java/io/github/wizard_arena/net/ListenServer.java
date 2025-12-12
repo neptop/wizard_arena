@@ -398,7 +398,7 @@ public class ListenServer {
                                         p.y += iu.moveY * speed * dt;
                                     }
                                     p.blinkCooldown = Math.max(0f, p.blinkCooldown - dt); // reduce blink cooldown
-
+                                    p.currentAnimationID = iu.currentAnimationID;
                                     // process rotation of players
                                     p.lookAngle = iu.lookAngle;
 

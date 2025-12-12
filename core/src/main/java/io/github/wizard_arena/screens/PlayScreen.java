@@ -333,6 +333,12 @@ public class PlayScreen extends ScreenAdapter {
                         p.playerHealthBar.setHealthRatio(ps.hp, p.maxHealth);
                         p.lookAngle = ps.lookAngle;
                         p.setRotation(ps.lookAngle);
+
+
+                        p.currentAnimationID = ps.currentAnimationID;
+
+
+                        p.angle = ps.lookAngle;
                         p.setAlive(ps.alive);
                         p.setRoundsWon(ps.roundsWon);
                     }
@@ -449,7 +455,30 @@ public class PlayScreen extends ScreenAdapter {
         for (Player p : playerSprites.values()) {
             if(!p.isAlive()) continue;
 
-
+            switch (p.currentAnimationID) {
+                case 0:
+                    if(p.currentAnimation != p.idle) {
+                        p.currentAnimation = p.idle;
+                        p.stateTime = 0f;
+                    }
+                    break;
+                case 1:
+                    if(p.currentAnimation != p.attackAnimation) {
+                        p.currentAnimation = p.attackAnimation;
+                        p.stateTime = 0f;
+                    }
+                    break;
+                case 2:
+                    if(p.currentAnimation != p.blinkAnimation) {
+                        p.currentAnimation = p.blinkAnimation;
+                        p.stateTime = 0f;
+                    }
+                    break;
+                default:
+                    p.currentAnimation = p.idle;
+                    break;
+            }
+            p.stateTime += delta;
             p.render(game.batch);
 
             // draw each players' health bar under them

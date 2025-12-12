@@ -11,7 +11,7 @@
 - Issue 10: Basic UI & HUD
 - Issue 11: Power ups
 - Issue 12: Art assets for players, spells, arena, and UI elements
-
+- issue 17: Add Animations
 
 ** Open Issues **
 
@@ -19,4 +19,4 @@
 - Issue 14: Add lava barrier + shrinking logic
 - Issue 15: Additional Spells
 - Issue 16: Advanced spell interactions
-- issue 17: Add Animations
+

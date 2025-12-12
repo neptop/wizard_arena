@@ -1,5 +1,9 @@
 package io.github.wizard_arena.net;
 
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Animation;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+
 import java.io.Serializable;
 import java.util.Map;
 import java.util.List;
@@ -45,6 +49,7 @@ public class Messages {
         public boolean blink; // blink ability input
         public int selectedSpellSlot; // selected spell slot (0-3)
         public boolean pickupSpell; // pickup spell input
+        public int currentAnimationID;
     }
 
     // server to client on each snapshot
@@ -104,6 +109,7 @@ public class Messages {
 
         public String[] spellSlots;
 
+        public int currentAnimationID;
         public PlayerState(int id, float x, float y, float hp) {
             this.id = id;
             this.x = x;
@@ -117,7 +123,7 @@ public class Messages {
             this.selectedSpellSlot = 0;
             this.speedMultiplier = 1.0f;
             this.overdriveDuration = 0f;
-
+            this.currentAnimationID = 0;
             // debuffs
             this.poisonDuration = 0f;
             this.burnDuration = 0f;
