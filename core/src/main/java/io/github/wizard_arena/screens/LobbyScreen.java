@@ -56,7 +56,8 @@ public class LobbyScreen extends ScreenAdapter {
     private String selectedMap = "map1.txt";
     private static final String [] AVAILABLE_MAPS = {
         "map1.txt",
-        "map2.txt"
+        "map2.txt",
+        "map3.txt"
     };
 
     // debug flag

@@ -18,14 +18,7 @@ import io.github.wizard_arena.wizardGame;
 import io.github.wizard_arena.debug.CheatConsole;
 import org.w3c.dom.Text;
 
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.HashSet;
+import java.util.*;
 
 import static io.github.wizard_arena.net.Messages.*;
 
@@ -51,6 +44,10 @@ public class PlayScreen extends ScreenAdapter {
     private int map_width;
     Texture floor;
     Texture wall;
+    Texture grass;
+    Texture mud;
+    Texture ice;
+    Texture snow;
     final private int spriteSize = 64;  //all sprites and tile sizes are 64x64
 
     //  camera setup
@@ -185,6 +182,10 @@ public class PlayScreen extends ScreenAdapter {
 
         wall = new Texture(Gdx.files.internal("wall_tile.png"));
         floor = new Texture(Gdx.files.internal("floor_tile.png"));
+        grass = new Texture(Gdx.files.internal("grass_tile.png"));
+        mud = new Texture(Gdx.files.internal("mud_tile.png"));
+        ice = new Texture(Gdx.files.internal("ice_tile.png"));
+        snow = new Texture(Gdx.files.internal("snow_tile.png"));
 
         // spell projectile textures
         starterBallTexture = new Texture(Gdx.files.internal("star_spell_icon.png"));
@@ -220,18 +221,34 @@ public class PlayScreen extends ScreenAdapter {
         tiles = new Tile[map_height][map_width];
 
 
+        System.out.println("now playing" + mapFile);
         for(int i = 0; i < map_height  ; i++) {
             String line = lines[i];
             for(int j = 0 ; j < map_width ; j++) {
                 char c = line.charAt(j);
                 Texture curr_tile;
                 if(c == 'P'|| c == 'U' || c == 'S') {
-                    curr_tile = floor;
+                    if(Objects.equals(mapFile, "map1.txt"))
+                        curr_tile = floor;
+                    else if(Objects.equals(mapFile, "map2.txt"))
+                        curr_tile = grass;
+                    else
+                        curr_tile = snow;
                 } else if (c == 'X' ) {
-                    curr_tile = wall;
+                    if(Objects.equals(mapFile, "map1.txt"))
+                        curr_tile = wall;
+                    else if(Objects.equals(mapFile, "map2.txt"))
+                        curr_tile = mud;
+                    else
+                        curr_tile = ice;
                 }
                 else {
-                    curr_tile = floor;
+                    if(Objects.equals(mapFile, "map1.txt"))
+                        curr_tile = floor;
+                    else if(Objects.equals(mapFile, "map2.txt"))
+                        curr_tile = grass;
+                    else
+                        curr_tile = snow;
                 }
                 tiles[i][j] = new Tile(game, i, j, curr_tile, (c == 'P' || c == 'O' || c == 'S' || c == 'U'));
             }
