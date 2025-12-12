@@ -8,7 +8,7 @@ public class HealSpell extends BaseSpell {
     private static final float PROJECTILE_SPEED = 0f;
 
     public HealSpell() {
-        super(20.0f); // cd time
+        super(30.0f); // cd time
     }
 
     public float getDamage() {
