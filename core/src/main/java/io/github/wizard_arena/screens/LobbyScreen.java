@@ -1,5 +1,8 @@
 package io.github.wizard_arena.screens;
 
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.List;
+import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
 import io.github.wizard_arena.net.Messages;
 import io.github.wizard_arena.net.Client;
 import io.github.wizard_arena.net.ListenServer;
@@ -20,6 +23,10 @@ import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
+import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import io.github.wizard_arena.net.NetConfig;
 import io.github.wizard_arena.wizardGame;
 
@@ -30,7 +37,7 @@ public class LobbyScreen extends ScreenAdapter {
     private final String playerName;
     private final boolean isHost;
     private final String hostIP;
-    private String displayIP;
+    private int hostPort;
 
     private Stage stage;
     private ScreenViewport viewport;
@@ -45,6 +52,17 @@ public class LobbyScreen extends ScreenAdapter {
     private String currentLobbyIP; // lobby IP with port
     private String rawHostIP; // raw IP without port
 
+    private SelectBox<String> mapSelect;
+    private String selectedMap = "dungeon.txt";
+    private static final String [] AVAILABLE_MAPS = {
+        "dungeon.txt",
+        "grass.txt",
+        "snow.txt"
+    };
+
+    // debug flag
+    private CheckBox debugCheckbox;
+
     public LobbyScreen(wizardGame game, ListenServer server, Client client, String playerName, boolean isHost) {
         this.game = game;
         this.server = server;
@@ -52,10 +70,11 @@ public class LobbyScreen extends ScreenAdapter {
         this.playerName = playerName;
         this.isHost = isHost;
         this.hostIP = (server != null) ? server.getHostIP() : null;
+        this.hostPort = (server != null) ? server.getPort() : NetConfig.TCP_PORT; // fallback to port only
         this.rawHostIP = hostIP;
 
         if (hostIP != null) {
-            this.currentLobbyIP = hostIP + ":" + NetConfig.TCP_PORT;
+            this.currentLobbyIP = hostIP + ":" + hostPort;
         } else {
             this.currentLobbyIP = null;
         }
@@ -91,12 +110,12 @@ public class LobbyScreen extends ScreenAdapter {
         leftPanel.add(playersLabel).left().row();
         leftPanel.add(scrollPane).grow().row();
 
-        //show lobby IP
+        //show lobby IP / host address
         String initIPText;
         if (currentLobbyIP != null) {
-            initIPText = "Lobby IP: " + currentLobbyIP;
+            initIPText = "Host Address: " + currentLobbyIP;
         } else {
-            initIPText = "Lobby IP: N/A";
+            initIPText = "Host Address: N/A";
         }
 
         ipLabel = new Label(initIPText, skin);
@@ -107,10 +126,10 @@ public class LobbyScreen extends ScreenAdapter {
         copyIPButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                if (rawHostIP != null) {
-                    Gdx.app.getClipboard().setContents(rawHostIP);
+                if (currentLobbyIP != null) {
+                    Gdx.app.getClipboard().setContents(currentLobbyIP);
                     // feedback to user
-                    ipLabel.setText("Lobby IP: " + rawHostIP + " (copied)");
+                    ipLabel.setText("Host Address: " + currentLobbyIP + " (copied)");
                 }
             }
         });
@@ -154,8 +173,15 @@ public class LobbyScreen extends ScreenAdapter {
             TextButton startButton = new TextButton("Start Game", skin);
             startButton.addListener(new ClickListener() {
                 @Override
-                public void clicked(InputEvent event, float x, float y) {
+                public void clicked(InputEvent event, float x, float y){
                     if (server != null) {
+                        //
+                        server.setDebugMode(debugCheckbox != null && debugCheckbox.isChecked());
+
+                        if (mapSelect != null) {
+                            selectedMap = (mapSelect.getSelected());
+                        }
+                        server.setMapFile(selectedMap);
                         server.sendStartGame();
                     }
                 }
@@ -170,6 +196,32 @@ public class LobbyScreen extends ScreenAdapter {
         // assemble right panel
         rightPanel.top().right();
         rightPanel.add(topBar).growX().top().row();
+
+        if (isHost) {
+            Label mapLabel = new Label("Select Map:", skin);
+            mapSelect = new SelectBox<>(skin);
+            mapSelect.setItems(AVAILABLE_MAPS);
+            mapSelect.setSelected(selectedMap);
+            mapSelect.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    selectedMap = mapSelect.getSelected();
+                }
+            });
+
+            Table mapTable = new Table(skin);
+            mapTable.add(mapLabel).left().padRight(8f);
+            mapTable.add(mapSelect).left().width(200f);
+            rightPanel.add(mapTable).left().padTop(10f).row();
+        }
+
+        // debug checkbox (only for host)
+        if (isHost) {
+            debugCheckbox = new CheckBox(" Enable Debug Mode", skin);
+            debugCheckbox.left();
+            rightPanel.add(debugCheckbox).right().padTop(10f).row();
+        }
+
         rightPanel.add().expand().row(); // spacer
         rightPanel.add(bottomBar).growX().bottom().row();
 
@@ -207,18 +259,21 @@ public class LobbyScreen extends ScreenAdapter {
                 // update ip label for everyone
                 if (ipLabel != null && lobbyUpdate.hostIP != null) {
                     rawHostIP = lobbyUpdate.hostIP;
-                    currentLobbyIP = lobbyUpdate.hostIP + ":" + NetConfig.TCP_PORT;
-                    ipLabel.setText("Lobby IP: " + currentLobbyIP);
+                    hostPort = lobbyUpdate.hostPort;
+                    currentLobbyIP = rawHostIP + ":" + hostPort;
+                    ipLabel.setText("Host Address: " + currentLobbyIP);
                 }
 
             } else if (msg instanceof Messages.StartGame) {
                 // server indicates to start the game
+                Messages.StartGame start = (Messages.StartGame) msg;
                 final boolean hostFlag = isHost;
+                final String mapFile = start.mapFile;
                 Gdx.app.postRunnable(() -> {
                     if (hostFlag) {
-                        game.setScreen(new PlayScreen(game, server, client));
+                        game.setScreen(new PlayScreen(game, server, client, mapFile));
                     } else {
-                        game.setScreen(new PlayScreen(game, client));
+                        game.setScreen(new PlayScreen(game, client, mapFile));
                     }
                 });
                 return;
@@ -246,7 +301,7 @@ public class LobbyScreen extends ScreenAdapter {
 
     // helpers
     private Texture makeWhiteTexture() {
-        Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+        Pixmap pixmap = new Pixmap(16, 16, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.WHITE);
         pixmap.fill();
         Texture texture = new Texture(pixmap);
@@ -303,6 +358,23 @@ public class LobbyScreen extends ScreenAdapter {
         scrollPaneStyle.vScroll = null; // no scroll bar for now, may add later
         scrollPaneStyle.vScrollKnob = null;
         skin.add("default", scrollPaneStyle);
+
+        // select box style
+        SelectBox.SelectBoxStyle selectBoxStyle = new SelectBox.SelectBoxStyle();
+        selectBoxStyle.font = font;
+        selectBoxStyle.fontColor = Color.WHITE;
+        selectBoxStyle.background = new TextureRegionDrawable(new TextureRegion(white)).tint(new Color(0.15f, 0.15f, 0.15f, 1f));
+        selectBoxStyle.scrollStyle = scrollPaneStyle;
+        selectBoxStyle.listStyle = listStyle;
+        skin.add("default", selectBoxStyle);
+
+        // checkbox style
+        CheckBox.CheckBoxStyle checkBoxStyle = new CheckBox.CheckBoxStyle();
+        checkBoxStyle.checkboxOff = new TextureRegionDrawable(new TextureRegion(white)).tint(new Color(0.15f, 0.15f, 0.15f, 1f));
+        checkBoxStyle.checkboxOn = new TextureRegionDrawable(new TextureRegion(white)).tint(new Color(0.3f, 0.7f, 0.25f, 1f));
+        checkBoxStyle.font = font;
+        checkBoxStyle.fontColor = Color.WHITE;
+        skin.add("default", checkBoxStyle);
 
         // default background
         skin.add("default-bg", bg);

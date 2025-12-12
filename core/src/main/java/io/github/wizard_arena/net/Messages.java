@@ -1,6 +1,11 @@
 package io.github.wizard_arena.net;
 
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Animation;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+
 import java.io.Serializable;
+import java.util.Map;
 import java.util.List;
 
 public class Messages {
@@ -39,8 +44,12 @@ public class Messages {
         public float moveY;
         public float aimX; // aiming direction
         public float aimY;
+        public float lookAngle;
         public boolean castSpell; // spell casting input
         public boolean blink; // blink ability input
+        public int selectedSpellSlot; // selected spell slot (0-3)
+        public boolean pickupSpell; // pickup spell input
+        public int currentAnimationID;
     }
 
     // server to client on each snapshot
@@ -49,6 +58,8 @@ public class Messages {
         public long serverTime; // server timestamp
         public List<PlayerState> players;
         public List<ProjectileState> projectiles;
+        public List<SpellPickupState> spellPickups;
+        public List<PowerupState> powerups;
 
         public int roundNumber; // current round number
         public float roundTimeRemaining; // time remaining in the current round before sudden death
@@ -56,6 +67,15 @@ public class Messages {
         public int roundWinnerId; // id of the player who won the round, -1 if no winner yet
         public int matchWinnerId; // id of the player who won the match, -1 if no winner yet
         public float postRoundTimeRemaining; // time remaining in post round state
+        public boolean lavaActive; // is lava hazard active
+        public boolean lavaJustStarted;
+        public float lavaCenterX;
+        public float lavaCenterY;
+        public float lavaRadius;
+
+        public Map<Integer, String> playerNames; // mapping of player IDs to names
+        public String roundWinnerName;
+        public String matchWinnerName;
 
         public Snapshot() {}
     }
@@ -65,20 +85,82 @@ public class Messages {
         public int id;
         public float x;
         public float y;
+        public float lookAngle;
         public float hp;
         public int lastProcessedInput; // last input seq processed by server
         public float blinkCooldown; // time remaining for blink ability cooldown
         public boolean alive;
         public int roundsWon;
+        public int selectedSpellSlot;
+
+        // powerup tracking
+        public float speedMultiplier;
+        public float speedBoostDuration;
+        public float overdriveDuration;
+        public boolean hasShield;
+
+        // lava tracking
+        public boolean inLava;
+        public float lavaTickTimer;
+
+        // knockback tracking
+        public float knockbackX;
+        public float knockbackY;
+        public boolean isKnockback;
+
+        // debuff/ DOT tracking
+        public float poisonDuration;
+        public float burnDuration;
+        public float combinedDotDuration;
+        public float dotTickTimer;
+        public float frostDuration;
+
+        public float[] spellCooldownRemaining;
+        public float[] spellCooldownMax;
+
+        public String[] spellSlots;
+
+        public int currentAnimationID;
         public PlayerState(int id, float x, float y, float hp) {
             this.id = id;
             this.x = x;
             this.y = y;
             this.hp = hp;
+            this.lookAngle = 0f;
             this.lastProcessedInput = 0;
             this.blinkCooldown = 0f;
             this.alive = true;
             this.roundsWon = 0;
+
+            // powerups
+            this.selectedSpellSlot = 0;
+            this.speedMultiplier = 1.0f;
+            this.overdriveDuration = 0f;
+            this.hasShield = false;
+
+            // knockback
+            this.knockbackX = 0f;
+            this.knockbackY = 0f;
+            this.isKnockback = false;
+
+            this.currentAnimationID = 0;
+            // debuffs
+            this.poisonDuration = 0f;
+            this.burnDuration = 0f;
+            this.combinedDotDuration = 0f;
+            this.dotTickTimer = 0f;
+            this.frostDuration = 0f;
+
+            // lava
+            this.inLava = false;
+            this.lavaTickTimer = 0f;
+
+            // 4 spell slots
+            this.spellSlots = new String[4];
+
+            // spell cooldowns
+            this.spellCooldownRemaining = new float[4];
+            this.spellCooldownMax = new float[4];
         }
     }
 
@@ -89,19 +171,75 @@ public class Messages {
         public float y;
         public float vx;
         public float vy;
+        public float castAngle;
         public int ownerId; // id of the player who cast the projectile
-        public float maxLifetime; // maximum lifetime of the projectile in seconds // TEMP
+        public float damage;
+        public boolean piercing;
+        public String spellType;
+
         public ProjectileState() {}
-        public ProjectileState(int id, float x, float y, float vx, float vy) {
+        public ProjectileState(int id, float x, float y, float vx, float vy, float castAngle) {
             this.id = id;
             this.x = x;
             this.y = y;
             this.vx = vx;
             this.vy = vy;
+            this.castAngle = castAngle;
             this.ownerId = -1;
-            this.maxLifetime = 0f; // TEMP
+            this.damage = 0f;
+            this.piercing = false;
+            this.spellType = "";
         }
     }
+
+    public static class SpellPickupState implements Msg {
+        public int id;
+        public float x;
+        public float y;
+        public String spellType;
+        public SpellPickupState() {}
+        public SpellPickupState(int id, float x, float y, String spellType) {
+            this.id = id;
+            this.x = x;
+            this.y = y;
+            this.spellType = spellType;
+        }
+    }
+
+    public static class PowerupState implements Msg {
+        public int id;
+        public float x;
+        public float y;
+        public String powerupType;
+        public PowerupState() {}
+        public PowerupState(int id, float x, float y, String powerupType) {
+            this.id = id;
+            this.x = x;
+            this.y = y;
+            this.powerupType = powerupType;
+        }
+    }
+
+    public static class SpawnSpellPickupRequest implements Msg {
+        public int playerId;
+        public String spellType;
+        public SpawnSpellPickupRequest() {}
+        public SpawnSpellPickupRequest(int playerId, String spellType) {
+            this.playerId = playerId;
+            this.spellType = spellType;
+        }
+    }
+
+    public static class SpawnPowerupRequest implements Msg {
+        public int playerId;
+        public String powerupType;
+        public SpawnPowerupRequest() {}
+        public SpawnPowerupRequest(int playerId, String powerupType) {
+            this.playerId = playerId;
+            this.powerupType = powerupType;
+        }
+    }
+
 
     // client to server ping message
     public static class Ping implements Msg {
@@ -139,16 +277,23 @@ public class Messages {
     public static class LobbyUpdate implements Msg {
         public List<LobbyPlayerInfo> players;
         public String hostIP;
+        public int hostPort;
 
         public LobbyUpdate() {}
-        public LobbyUpdate(List<LobbyPlayerInfo> players, String hostIP) {
+        public LobbyUpdate(List<LobbyPlayerInfo> players, String hostIP, int hostPort) {
             this.players = players;
             this.hostIP = hostIP;
+            this.hostPort = hostPort;
         }
     }
 
     public static class StartGame implements Msg {
+        public String mapFile;
         public StartGame() {}
+
+        public StartGame(String mapFile) {
+            this.mapFile = mapFile;
+        }
     }
 
     public static class DamageRequest implements Msg {
@@ -181,4 +326,11 @@ public class Messages {
         }
     }
 
+    public static class LavaStartRequest implements Msg {
+        public int playerId; // for logging purposes
+        public LavaStartRequest() {}
+        public LavaStartRequest(int playerId) {
+            this.playerId = playerId;
+        }
+    }
 }

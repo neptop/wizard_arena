@@ -3,14 +3,21 @@ package io.github.wizard_arena;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Input.Buttons;
+import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import io.github.wizard_arena.net.Client;
 import io.github.wizard_arena.net.Messages;
 import io.github.wizard_arena.net.NetConfig;
+import io.github.wizard_arena.HealthBar;
+import io.github.wizard_arena.Hotbar;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -19,22 +26,23 @@ import java.util.Vector;
 
 public class Player extends Sprite {
 
-    //  Speed stuff
+    //  Orientation stuff
 
     float xVelocity;
     float yVelocity;
     float speed;
+    public float lookAngle;
 
     //  Blink Stuff
-    private static final float BLINK_COOLDOWN = 2.4f;
-    private static final float BLINK_DISTANCE = 200f;
+    private static final float BLINK_DISTANCE = 4f; //  corresponds to number of tiles
 
-    private float blinkTimer = 0f;
+    public float blinkTimer = 0f;
+    public float maxBlinkBar = 150f;
     public boolean blinked;
     private boolean canBlink; // input flag to send to server
 
     //  general timer
-    private float stateTime;
+    public float stateTime = 0f;
 
     //  online stuff
     public Messages.InputUpdate inputUpdate;
@@ -54,16 +62,48 @@ public class Player extends Sprite {
     // health
     public float health = 100f;
     public float maxHealth = 100f;
+    private boolean hasShield = false;
+
+    // ui
+    public HealthBar hudHealthBar;
+    public HealthBar playerHealthBar;
+    public BlinkBar playerBlinkBar;
+    public Hotbar hotbar;
+    InputCore ic;
+    Texture roundWonEmpty;
+    Texture roundWonFull;
 
     // status
     private boolean alive = true;
     private int roundsWon = 0;
 
+    // spell slots
+    private int selectedSpellSlot = 0;
+    private String[] spellSlots = new String[4];
+
     // cheats
     public boolean godMode = false;
 
+    //  collision detection
+    public Tile[][] map;
+    public int tileSize = 64;
+    public Rectangle bounds;
+    public int playerSize = 48;
 
-    public Player(wizardGame game, float speed, Client client, int spawnX, int spawnY) {
+    //  Animations
+    public float angle = 0f;
+    public int id;
+
+    //  player animations
+    public Animation<TextureRegion> currentAnimation;
+
+    public Animation<TextureRegion> idle;
+    public Animation<TextureRegion> attackAnimation;
+    public Animation<TextureRegion> blinkAnimation;
+
+    public int currentAnimationID; //  sent to server to denote remote animations
+
+    public Player(wizardGame game, float speed, Client client, int spawnX, int spawnY, Tile[][] map) {
         super(game.assets.get("red_wizard.png", Texture.class));
         this.speed = speed;
         blinkTimer = 0f;
@@ -75,29 +115,157 @@ public class Player extends Sprite {
 
         this.maxHealth = 100f;
         this.health = maxHealth;
+
+        this.map = map;
+        this.bounds = new Rectangle(spawnX, spawnY, playerSize, playerSize);
+
+        createHealthBars();
+        createHotbar();
+        spellSlots = new String[4];
+        spellSlots[0] = "magic";
+        hotbar.setSpellTypes(spellSlots);
+
+        // used for handling scroll wheel input
+        InputCore ic = new InputCore(this);
+        Gdx.input.setInputProcessor(ic);
+
+        this.roundWonEmpty = new Texture(Gdx.files.internal("round_win_empty.png"));
+        this.roundWonFull = new Texture(Gdx.files.internal("round_win_full.png"));
     }
 
-    public void movement() {
+    public void checkCollision(float dx, float dy, int tileSize) {
+        float centerX = getX() + tileSize / 2f;
+        float centerY = getY() + tileSize / 2f;
+
+        // Horizontal movement
+        if (dx != 0) {
+            float moveDistance;
+            if(blinked) {
+                // Check each tile in the blink path
+                moveDistance = findMaxValidDistance(centerX, centerY, dx, dy,
+                    (dx * BLINK_DISTANCE) * tileSize, tileSize);
+            } else {
+                moveDistance = dx * (playerSize / 4f);
+            }
+
+            float newCenterX = centerX + moveDistance;
+            float newX = newCenterX - playerSize / 2f;
+            float newY = centerY - playerSize / 2f;
+            Rectangle testBounds = new Rectangle(newX, newY, playerSize, playerSize);
+
+            int nextTileX = (int)((testBounds.x + tileSize/2f) / tileSize);
+            int tileY = (int)((testBounds.y + tileSize/2f) / tileSize);
+
+            if (isColliding(testBounds, nextTileX, tileY)) {
+                xVelocity = 0;
+            } else {
+                if(blinked)
+                    xVelocity = moveDistance / tileSize; // this will be the number of tiles moved
+                else
+                    xVelocity = dx;
+            }
+        } else {
+            xVelocity = 0;
+        }
+
+        // Vertical movement
+        if (dy != 0) {
+            float moveDistance;
+            if(blinked) {
+                moveDistance = findMaxValidDistance(centerX, centerY, dx, dy,
+                    (dy * BLINK_DISTANCE) * tileSize, tileSize);
+            } else {
+                moveDistance = dy * (playerSize / 4f);
+            }
+
+
+            float newCenterY = centerY + moveDistance;
+            float newY = newCenterY - playerSize / 2f;
+            float newX = centerX - playerSize / 2f;
+            Rectangle testBounds = new Rectangle(newX, newY, playerSize, playerSize);
+
+            int nextTileY = (int)((testBounds.y + tileSize/2f) / tileSize);
+            int tileX = (int)((testBounds.x + tileSize/2f) / tileSize);
+
+            if (isColliding(testBounds, tileX, nextTileY)) {
+                yVelocity = 0;
+            } else {
+                if(blinked)
+                    yVelocity = moveDistance / tileSize;
+                else
+                    yVelocity = dy;
+            }
+        } else {
+            yVelocity = 0;
+        }
+    }
+
+    // finds the max travel distance before hitting a wall
+    private float findMaxValidDistance(float startX, float startY, float dirX, float dirY,
+                                       float targetDistance, int tileSize) {
+
+        float currentDistance = 0;
+        float lastValidDistance = 0;
+
+        int steps = (int)Math.ceil(Math.abs(targetDistance) / tileSize);
+
+        float sign = targetDistance >= 0 ? 1 : -1;
+
+        for (int i = 1; i <= steps; i++) {
+            currentDistance = Math.min(i * tileSize, Math.abs(targetDistance)) * sign;
+
+            float testCenterX = startX + (dirX != 0 ? currentDistance : 0);
+            float testCenterY = startY + (dirY != 0 ? currentDistance : 0);
+
+            float testX = testCenterX - playerSize / 2f;
+            float testY = testCenterY - playerSize / 2f;
+            Rectangle testBounds = new Rectangle(testX, testY, playerSize, playerSize);
+
+            int tileX = (int)((testBounds.x + tileSize/2f) / tileSize);
+            int tileY = (int)((testBounds.y + tileSize/2f) / tileSize);
+
+            if (isColliding(testBounds, tileX, tileY)) {
+                // Hit a wall, return the last valid distance
+                return lastValidDistance;
+            }
+            lastValidDistance = currentDistance;
+        }
+
+        // No collision found, return the full target distance
+        return targetDistance;
+    }
+
+    private boolean isColliding(Rectangle testBounds, int tileX, int tileY) {
+        // Check current and adjacent tiles
+        for (int y = tileY - 1; y <= tileY + 1; y++) {
+            for (int x = tileX - 1; x <= tileX + 1; x++) {
+                if (x >= 0 && x < map[0].length && y >= 0 && y < map.length) {
+                    if (!map[y][x].navigable && testBounds.overlaps(map[y][x].bounds)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    public void movement(float time) {
 
         int dX = 0;
         int dY = 0;
 
-        if(Gdx.input.isKeyPressed(Input.Keys.W)) {
+        if(Gdx.input.isKeyPressed(Input.Keys.W))
             dY = 1;
-        }
-        if(Gdx.input.isKeyPressed(Input.Keys.S)) {
+        if(Gdx.input.isKeyPressed(Input.Keys.S))
             dY = -1;
-        }
-        if(Gdx.input.isKeyPressed(Input.Keys.A)) {
+        if(Gdx.input.isKeyPressed(Input.Keys.A))
             dX = -1;
-        }
-        if(Gdx.input.isKeyPressed(Input.Keys.D)) {
+        if(Gdx.input.isKeyPressed(Input.Keys.D))
             dX = 1;
-        }
 
-        xVelocity = dX;
-        yVelocity = dY;
 
+        blink(time);
+
+        checkCollision( dX, dY, tileSize);
         // debugging output
         /*if (dX != 0 || dY != 0) {
             System.out.println("local input: (" + dX + ", " + dY + ")");
@@ -118,8 +286,10 @@ public class Player extends Sprite {
         if(blinkTimer <= 0f && Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)) {
             blinked = true;
             stateTime = 0f;
-            blinkTimer = 2.4f;
+            blinkTimer = 2.0f;
             canBlink = true;
+            currentAnimation = blinkAnimation;
+            currentAnimationID = 2;
         }
     }
 
@@ -138,21 +308,41 @@ public class Player extends Sprite {
             return; // skip movement and input sending when hud is open
         }
 
+        // spell slot hotkeys
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) selectedSpellSlot = 0;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) selectedSpellSlot = 1;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) selectedSpellSlot = 2;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) selectedSpellSlot = 3;
+
+        hotbar.hotbarSelectedSprite.setPosition((hotbar.hotbarSelectedSprite.getWidth() * selectedSpellSlot) + hotbar.getX() + 14, hotbar.getY() + 52);
         // read inputs
-        movement();
-        blink(time);
+        movement(time);
 
         // local movement update for client-side prediction
-        setX(getX() + xVelocity * speed * time);
-        setY(getY() + yVelocity * speed * time);
-
         if(blinked){
-            setX(getX() + xVelocity * BLINK_DISTANCE);
-            setY(getY() + yVelocity * BLINK_DISTANCE);
+            setX(getX() + xVelocity * tileSize);
+            setY(getY() + yVelocity * tileSize);
+
+        }
+        else {
+            setX(getX() + xVelocity * speed * time);
+            setY(getY() + yVelocity * speed * time);
+        }
+        if((currentAnimation == blinkAnimation && currentAnimation.isAnimationFinished(stateTime))
+            || (currentAnimation == attackAnimation && currentAnimation.isAnimationFinished(stateTime))) {
+            currentAnimationID = 0;
+            currentAnimation = idle;
+            stateTime = 0;
         }
 
         float aimX = 0f;
         float aimY = 0f;
+
+        // set position of your own health bar
+        // wanted to hide self hp bar but commenting this out broke it so it's just set to offscreen
+        playerHealthBar.setPosition(getX(), getY() - 1024);
+
+        rotateSprite(camera);
 
         if (camera != null) {
             Vector3 mouse = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0f); // mouse position in screen coords
@@ -168,6 +358,11 @@ public class Player extends Sprite {
         }
 
         boolean cast = Gdx.input.isButtonJustPressed(Buttons.LEFT);
+        if(cast)
+            currentAnimationID = 1;
+
+
+        boolean pickUpSpell = Gdx.input.isKeyJustPressed(Input.Keys.E);
 
         // send input to server
         if (client != null) {
@@ -178,12 +373,15 @@ public class Player extends Sprite {
             iu.clientId = (client != null ? client.clientId : -1);
             iu.seq = nextInputSeq++;
             iu.dt = time; // delta time since last input
-
-
+            iu.currentAnimationID = currentAnimationID;
             iu.aimX = aimX;
             iu.aimY = aimY;
+            iu.lookAngle = lookAngle;
             iu.castSpell = cast; // spell casting input
-            iu.blink = canBlink; // blink ability input
+
+            iu.blink = blinked; // blink ability input
+            iu.selectedSpellSlot = selectedSpellSlot;
+            iu.pickupSpell = pickUpSpell;
 
             pendingInputs.add(iu); // store input for client-side prediction
 
@@ -193,6 +391,7 @@ public class Player extends Sprite {
                 throw new RuntimeException(e);
             }
         }
+
     }
 
     // this is called when a new server snapshot is received
@@ -200,6 +399,8 @@ public class Player extends Sprite {
         // correct position based on server state
         setX(serverX);
         setY(serverY);
+
+//        setRotation(lookAngle);
 
         // reapply pending inputs that the server hasn't processed yet
         int i = 0;
@@ -210,15 +411,17 @@ public class Player extends Sprite {
                 pendingInputs.remove(i);
             } else {
                 // reapply this input
-                setX(getX() + input.moveX * speed * input.dt);
-                setY(getY() + input.moveY * speed * input.dt);
 
-                // reapply blink if it was used
                 if(input.blink) {
-                    setX(getX() + input.moveX * BLINK_DISTANCE);
-                    setY(getY() + input.moveY * BLINK_DISTANCE);
+                    setX(getX() + input.moveX * tileSize);
+                    setY(getY() + input.moveY * tileSize);
+                }
+                else {
+                    setX(getX() + input.moveX * speed * input.dt);
+                    setY(getY() + input.moveY * speed * input.dt);
                 }
 
+                // reapply blink if it was used
                 i++;
             }
         }
@@ -254,6 +457,33 @@ public class Player extends Sprite {
         float newY = interpStartY + (interpTargetY - interpStartY) * interpT;
         setX(newX);
         setY(newY);
+
+        // update remote health bars
+        playerHealthBar.setPosition(getX(), getY() - 32);
+    }
+
+    private void createHealthBars(){
+        this.hudHealthBar = new HealthBar(100, Gdx.graphics.getHeight() - 60, 408, 50);
+        this.playerHealthBar = new HealthBar(getX(), getY() - 32, 64, 16);
+        this.playerBlinkBar = new BlinkBar(100, hudHealthBar.getY() - hudHealthBar.getHeight(), 150, 45);
+    }
+
+    // rotates the sprite to point toward crosshair
+    private void rotateSprite(OrthographicCamera camera){
+        Vector3 mousePos = camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0));
+        Vector2 spritePos = new Vector2(getX(), getY());
+
+        float angleRadians = (float) Math.atan2(mousePos.y - spritePos.y, mousePos.x - spritePos.x);
+        float angleDegrees = (float) Math.toDegrees(angleRadians);
+        angleDegrees -= 90;
+
+        this.setRotation(angleDegrees);
+        lookAngle = angleDegrees;
+        angle = angleDegrees;
+    }
+
+    private void createHotbar(){
+        hotbar = new Hotbar(512, 32);
     }
 
     public void setGodMode(boolean godMode) {
@@ -290,5 +520,101 @@ public class Player extends Sprite {
 
     public void setRoundsWon(int roundsWon) {
         this.roundsWon = roundsWon;
+    }
+
+    public int getSelectedSpellSlot() {
+        return selectedSpellSlot;
+    }
+
+    public void setSelectedSpellSlot(int ss) {
+        selectedSpellSlot = ss;
+    }
+
+    public boolean hasShield() {
+        return hasShield;
+    }
+
+    public void setHasShield(boolean hasShield) {
+        this.hasShield = hasShield;
+    }
+
+    public void setSpellSlots(String[] slots) {
+        if (slots == null) return;
+        int n = Math.min(slots.length, spellSlots.length); // prevent out of bounds
+        for (int i = 0; i < n; i++) {
+            spellSlots[i] = slots[i];
+        }
+        // update hotbar
+        hotbar.setSpellTypes(spellSlots);
+    }
+    public void render(SpriteBatch batch) {
+        TextureRegion frame = currentAnimation.getKeyFrame(stateTime);
+
+        if(currentAnimation == idle || currentAnimation == attackAnimation || currentAnimation == blinkAnimation)  {
+            batch.draw(frame, getX(), getY(), tileSize /2f, tileSize/2f, getWidth(), getHeight(), 1f, 1f, angle);
+        }
+    }
+
+
+    //  id depicts what color we are animating
+    public void animatePlayer(int id) {
+
+
+        //  player animation sprite sheets
+        Texture wizardSheet;
+        switch (id) {
+            case 2:
+                wizardSheet = new Texture("blue_wizard-sheet.png");
+                break;
+            case 3:
+                wizardSheet = new Texture("green_wizard-sheet.png");
+                break;
+            case 4:
+                wizardSheet = new Texture("yellow_wizard-sheet.png");
+                break;
+            default:
+                wizardSheet = new Texture("red_wizard-sheet.png");
+                break;
+        }
+
+        int frameCols = 10;
+        int frameRows = 4;
+
+        TextureRegion[][] tmp = TextureRegion.split(wizardSheet, wizardSheet.getWidth() / frameCols, wizardSheet.getHeight() / frameRows);
+
+        TextureRegion[] idleFrames = new TextureRegion[frameCols];
+        int animationIndex = 0;
+        for(int i = 0; i < frameCols; i++) {
+            idleFrames[i] = tmp[animationIndex][i];
+        }
+        idle = new Animation<>(0.1f, idleFrames);
+        idle.setPlayMode(Animation.PlayMode.LOOP);
+
+        TextureRegion[] attackFrames = new TextureRegion[frameCols];
+        animationIndex++;
+        for(int i = 0; i < frameCols; i++) {
+            attackFrames[i] = tmp[animationIndex][i];
+        }
+        attackAnimation = new Animation<>(0.07f, attackFrames);
+        attackAnimation.setPlayMode(Animation.PlayMode.NORMAL);
+
+
+        TextureRegion[] blinkFrames = new TextureRegion[frameCols];
+        animationIndex++;
+        for(int i = 0; i < frameCols; i++) {
+            blinkFrames[i] = tmp[animationIndex][i];
+        }
+        blinkAnimation = new Animation<>(0.04f, blinkFrames);
+        blinkAnimation.setPlayMode(Animation.PlayMode.REVERSED);
+
+
+        currentAnimationID = 0;
+        currentAnimation = idle;
+    }
+
+    public void setSpellCooldowns(float[] remaining, float[] max) {
+        if (hotbar != null) {
+            hotbar.setCooldowns(remaining, max);
+        }
     }
 }

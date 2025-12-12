@@ -1,33 +1,73 @@
 # wizard-arena
+date of completion 12/12/2025  
+Group Members - David Hoang, Erik Ronning, Jordan Watts
 
-A [libGDX](https://libgdx.com/) project generated with [gdx-liftoff](https://github.com/libgdx/gdx-liftoff).
+### Controls
 
-This project was generated with a template including simple application launchers and an `ApplicationAdapter` extension that draws libGDX logo.
+- `w,a,s,d`: Movement controls allowing open-space movement
+- `shift`: performs the blink ability
+- `mouse 1`: left-click will shoot the currently active spell
+- `shift`: performs the blink ability
+- `1,2,3,4`: Select active spell slot
+- `e`: pickup spell (if inventory full, drops active spell)
+- `f1/tilde `: Open command console
 
-## Platforms
+### Cheat Codes
 
-- `core`: Main module with the application logic shared by all platforms.
-- `lwjgl3`: Primary desktop platform using LWJGL3; was called 'desktop' in older docs.
+- `help`: display available commands
+- `god`: enable godmode (player takes no damage)
+- `heal`: restore player health to max
+- `tkdmg <amount>`: take <amount> damage
+- `die`: instantly die
+- `killall`: instantly kill yourself and all other players
+- `spawnspell <name>`: spawn spell of given name at players position
+  - available spells
+    - lightning
+    - magic
+    - mine
+    - starter
+    - poison
+    - arrow
+    - heal
+    - fire
+    - ice
+    - air
 
-## Gradle
+- `spawnpowerup <name>`: display available commands
 
-This project uses [Gradle](https://gradle.org/) to manage dependencies.
-The Gradle wrapper was included, so you can run Gradle tasks using `gradlew.bat` or `./gradlew` commands.
-Useful Gradle tasks and flags:
+  - available powerups
+    - shield
+    - health
+    - overdrive
+    - speed
 
-- `--continue`: when using this flag, errors will not stop the tasks from running.
-- `--daemon`: thanks to this flag, Gradle daemon will be used to run chosen tasks.
-- `--offline`: when using this flag, cached dependency archives will be used.
-- `--refresh-dependencies`: this flag forces validation of all dependencies. Useful for snapshot versions.
-- `build`: builds sources and archives of every project.
-- `cleanEclipse`: removes Eclipse project data.
-- `cleanIdea`: removes IntelliJ project data.
-- `clean`: removes `build` folders, which store compiled classes and built archives.
-- `eclipse`: generates Eclipse project data.
-- `idea`: generates IntelliJ project data.
-- `lwjgl3:jar`: builds application's runnable jar, which can be found at `lwjgl3/build/libs`.
-- `lwjgl3:run`: starts the application.
-- `test`: runs unit tests (if any).
+- `startlava`: enable godmode (player takes no damage)
 
-Note that most tasks that are not specific to a single project can be run with `name:` prefix, where the `name` should be replaced with the ID of a specific project.
-For example, `core:clean` removes `build` folder only from the `core` project.
+
+>## Proposed Low-bar Goals
+>
+>**<br/>1\. Enough different spells to fill an inventory** `Status - Complete` 
+>**<br/>2\. Smooth player movement** `Status - Complete`
+>**<br/>3\. Player damage/death** `Status - Complete`
+>**<br/>4\. Basic networking (Listen Server)** `Status - Complete`
+>**<br/>5\. Basic arena with obstacles and lava** `Status - Complete`
+>**<br/>6\. Game loop with rounds and winner declaration** `Status - Complete`
+>**<br/>7\. Spell casting with cooldowns** `Status - Complete`
+>**<br/>8\. Basic UI & HUD** `Status - Complete` 
+>**<br/>9\. Power ups** `Status - Complete`
+>**<br/>10\. Main Menu and Lobby** `Status - Complete`
+>**<br/>11\. Camera** `Status - Complete`
+>**<br/>12\. Art assets** `Status - Complete`
+
+>## Other Completed Goals
+>
+>**<br/>1\. Advanced spell interactions**
+<br/> Certain spells have different effects, (ice slows player, fire and poison do damage over time,ice cancels out fire,
+<br/> Air knocks player back, Arrow pierces walls)
+**<br/>2\. Animated Player Characters**
+<br/> player characters have a blink and attack animation
+**<br/>3\. Multiple arena maps with unique layouts**
+<br/> Three different maps all a different theme and layout
+**<br/>4\. Additional spells**
+<br/> Wider variety of spells with different mechanics and effects
+
