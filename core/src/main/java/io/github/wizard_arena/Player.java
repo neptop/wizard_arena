@@ -3,6 +3,7 @@ package io.github.wizard_arena;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Input.Buttons;
+import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.Sprite;
@@ -66,6 +67,7 @@ public class Player extends Sprite {
     public HealthBar hudHealthBar;
     public HealthBar playerHealthBar;
     public Hotbar hotbar;
+    InputCore ic;
     Texture roundWonEmpty;
     Texture roundWonFull;
 
@@ -120,6 +122,10 @@ public class Player extends Sprite {
         spellSlots = new String[4];
         spellSlots[0] = "magic";
         hotbar.setSpellTypes(spellSlots);
+
+        // used for handling scroll wheel input
+        InputCore ic = new InputCore(this);
+        Gdx.input.setInputProcessor(ic);
 
         this.roundWonEmpty = new Texture(Gdx.files.internal("round_win_empty.png"));
         this.roundWonFull = new Texture(Gdx.files.internal("round_win_full.png"));
@@ -515,6 +521,10 @@ public class Player extends Sprite {
 
     public int getSelectedSpellSlot() {
         return selectedSpellSlot;
+    }
+
+    public void setSelectedSpellSlot(int ss) {
+        selectedSpellSlot = ss;
     }
 
     public boolean hasShield() {

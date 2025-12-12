@@ -421,7 +421,6 @@ public class PlayScreen extends ScreenAdapter {
                         pr.y = ps.y;
                         pr.spellType = ps.spellType;
                         pr.rotation = ps.castAngle;
-                        System.out.println("pr.rotation: " + pr.rotation + " ps.castAngle: " + ps.castAngle);
                     }
                 }
                 // remove projectiles that aren't in the snapshot anymore
