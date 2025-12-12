@@ -962,7 +962,7 @@ public class ListenServer {
                 }
 
                 // TODO: add effects for specific spell collisions here
-                System.out.println("Projectile " + p1.id + " (" + p1.spellType + ") collided with Projectile " + p2.id + " (" + p2.spellType + ")");
+                //System.out.println("Projectile " + p1.id + " (" + p1.spellType + ") collided with Projectile " + p2.id + " (" + p2.spellType + ")");
             }
         }
     }

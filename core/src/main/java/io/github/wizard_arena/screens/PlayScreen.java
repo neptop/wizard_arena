@@ -4,12 +4,10 @@ import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.*;
-import com.badlogic.gdx.graphics.g2d.Sprite;
+import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.Input;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -317,6 +315,7 @@ public class PlayScreen extends ScreenAdapter {
                     }
 
                     if (ps.id == client.clientId) {
+
                         // this is the local player, so apply server reconciliation
                         p.applyServerState(ps.x, ps.y, ps.lastProcessedInput);
                         p.setHealth(ps.hp); // update health
@@ -449,7 +448,9 @@ public class PlayScreen extends ScreenAdapter {
         // draw players
         for (Player p : playerSprites.values()) {
             if(!p.isAlive()) continue;
-            p.draw(game.batch);
+
+
+            p.render(game.batch);
 
             // draw each players' health bar under them
             p.playerHealthBar.draw(game.batch, 1);
@@ -922,6 +923,7 @@ public class PlayScreen extends ScreenAdapter {
 
     private void applyPlayerTex(int id, Player p) {
         Texture tex = getWizTextById(id);
-        p.setTexture(tex);
+        //p.setTexture(tex);
+        p.animatePlayer(id);
     }
 }

@@ -19,3 +19,4 @@
 - Issue 14: Add lava barrier + shrinking logic
 - Issue 15: Additional Spells
 - Issue 16: Advanced spell interactions
+- issue 17: Add Animations

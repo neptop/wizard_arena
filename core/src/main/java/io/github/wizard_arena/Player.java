@@ -4,9 +4,11 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Input.Buttons;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
@@ -39,7 +41,8 @@ public class Player extends Sprite {
     private boolean canBlink; // input flag to send to server
 
     //  general timer
-    private float stateTime;
+    private float stateTime = 0f;
+    private float spellTimer = 0f;
 
     //  online stuff
     public Messages.InputUpdate inputUpdate;
@@ -84,6 +87,20 @@ public class Player extends Sprite {
     public Rectangle bounds;
     public int playerSize = 48;
 
+    //  Animations
+    float angle = 0f;
+    public int id;
+
+    //  player animation sprite sheets
+    private Texture wizardSheet;
+
+    //  player animations
+    private Animation<TextureRegion> currentAnimation;
+
+    private Animation<TextureRegion> idle;
+    private Animation<TextureRegion> attackAnimation;
+    private Animation<TextureRegion> blinkAnimation;
+
     public Player(wizardGame game, float speed, Client client, int spawnX, int spawnY, Tile[][] map) {
         super(game.assets.get("red_wizard.png", Texture.class));
         this.speed = speed;
@@ -119,7 +136,7 @@ public class Player extends Sprite {
             float moveDistance;
             if(blinked) {
                 // Check each tile in the blink path
-                moveDistance = findMaxValidDistance(centerX, centerY, dx, 0,
+                moveDistance = findMaxValidDistance(centerX, centerY, dx, dy,
                     (dx * BLINK_DISTANCE) * tileSize, tileSize);
             } else {
                 moveDistance = dx * (playerSize / 4f);
@@ -149,7 +166,7 @@ public class Player extends Sprite {
         if (dy != 0) {
             float moveDistance;
             if(blinked) {
-                moveDistance = findMaxValidDistance(centerX, centerY, 0, dy,
+                moveDistance = findMaxValidDistance(centerX, centerY, dx, dy,
                     (dy * BLINK_DISTANCE) * tileSize, tileSize);
             } else {
                 moveDistance = dy * (playerSize / 4f);
@@ -265,6 +282,7 @@ public class Player extends Sprite {
             stateTime = 0f;
             blinkTimer = 2.0f;
             canBlink = true;
+            currentAnimation = blinkAnimation;
         }
     }
 
@@ -303,10 +321,12 @@ public class Player extends Sprite {
             setX(getX() + xVelocity * speed * time);
             setY(getY() + yVelocity * speed * time);
         }
+        if((currentAnimation == blinkAnimation && currentAnimation.isAnimationFinished(stateTime))
+            || (currentAnimation == attackAnimation && currentAnimation.isAnimationFinished(stateTime))) {
 
-
-
-
+            currentAnimation = idle;
+            stateTime = 0;
+        }
 
         float aimX = 0f;
         float aimY = 0f;
@@ -331,6 +351,10 @@ public class Player extends Sprite {
         }
 
         boolean cast = Gdx.input.isButtonJustPressed(Buttons.LEFT);
+        if(cast && currentAnimation != attackAnimation) {
+            currentAnimation = attackAnimation;
+            stateTime = 0f;
+        }
         boolean pickUpSpell = Gdx.input.isKeyJustPressed(Input.Keys.E);
 
         // send input to server
@@ -360,6 +384,7 @@ public class Player extends Sprite {
                 throw new RuntimeException(e);
             }
         }
+
     }
 
     // this is called when a new server snapshot is received
@@ -390,10 +415,6 @@ public class Player extends Sprite {
                     setY(getY() + input.moveY * speed * input.dt);
                 }
                 // reapply blink if it was used
-
-
-
-
 
                 i++;
             }
@@ -451,6 +472,7 @@ public class Player extends Sprite {
 
         this.setRotation(angleDegrees);
         lookAngle = angleDegrees;
+        angle = angleDegrees;
     }
 
     private void createHotbar(){
@@ -505,6 +527,70 @@ public class Player extends Sprite {
         }
         // update hotbar
         hotbar.setSpellTypes(spellSlots);
+    }
+    public void render(SpriteBatch batch) {
+        TextureRegion frame = currentAnimation.getKeyFrame(stateTime);
+
+        if(currentAnimation == idle || currentAnimation == attackAnimation || currentAnimation == blinkAnimation)  {
+            batch.draw(frame, getX(), getY(), tileSize /2f, tileSize/2f, getWidth(), getHeight(), 1f, 1f, angle);
+        }
+        else if(!currentAnimation.isAnimationFinished(stateTime)) {
+            batch.draw(frame, getX(), getY(), getWidth(), getHeight());
+        }
+    }
+
+
+    //  id depicts what color we are animating
+    public void animatePlayer(int id) {
+
+
+        switch (id) {
+            case 2:
+                wizardSheet = new Texture("blue_wizard-sheet.png");
+                break;
+            case 3:
+                wizardSheet = new Texture("green_wizard-sheet.png");
+                break;
+            case 4:
+                wizardSheet = new Texture("yellow_wizard-sheet.png");
+                break;
+            default:
+                wizardSheet = new Texture("red_wizard-sheet.png");
+                break;
+        }
+
+        int frameCols = 10;
+        int frameRows = 4;
+
+        TextureRegion[][] tmp = TextureRegion.split(wizardSheet, wizardSheet.getWidth() / frameCols, wizardSheet.getHeight() / frameRows);
+
+        TextureRegion[] idleFrames = new TextureRegion[frameCols];
+        int animationIndex = 0;
+        for(int i = 0; i < frameCols; i++) {
+            idleFrames[i] = tmp[animationIndex][i];
+        }
+        idle = new Animation<>(0.1f, idleFrames);
+        idle.setPlayMode(Animation.PlayMode.LOOP);
+
+        TextureRegion[] attackFrames = new TextureRegion[frameCols];
+        animationIndex++;
+        for(int i = 0; i < frameCols; i++) {
+            attackFrames[i] = tmp[animationIndex][i];
+        }
+        attackAnimation = new Animation<>(0.07f, attackFrames);
+        attackAnimation.setPlayMode(Animation.PlayMode.NORMAL);
+
+
+        TextureRegion[] blinkFrames = new TextureRegion[frameCols];
+        animationIndex++;
+        for(int i = 0; i < frameCols; i++) {
+            blinkFrames[i] = tmp[animationIndex][i];
+        }
+        blinkAnimation = new Animation<>(0.04f, blinkFrames);
+        blinkAnimation.setPlayMode(Animation.PlayMode.REVERSED);
+
+
+        currentAnimation = idle;
     }
 
     public void setSpellCooldowns(float[] remaining, float[] max) {
