@@ -35,7 +35,7 @@ Group Members - David Hoang, Erik Ronning, Jordan Watts
         - when fire and poison debuff combine, super damage over time applied     
 
 
-- `spawnpowerup <name>`: display available commands
+- `spawnpowerup <name>`: spawn powerup of given name at players position
 
   - available powerups
     - shield - blocks one projectile
