@@ -117,7 +117,7 @@ public class Player extends Sprite {
         createHealthBars();
         createHotbar();
         spellSlots = new String[4];
-        spellSlots[0] = "starter";
+        spellSlots[0] = "magic";
         hotbar.setSpellTypes(spellSlots);
 
         this.roundWonEmpty = new Texture(Gdx.files.internal("round_win_empty.png"));

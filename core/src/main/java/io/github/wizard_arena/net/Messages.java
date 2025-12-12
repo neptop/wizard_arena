@@ -108,6 +108,7 @@ public class Messages {
         public float burnDuration;
         public float combinedDotDuration;
         public float dotTickTimer;
+        public float frostDuration;
 
         public float[] spellCooldownRemaining;
         public float[] spellCooldownMax;
@@ -140,6 +141,7 @@ public class Messages {
             this.burnDuration = 0f;
             this.combinedDotDuration = 0f;
             this.dotTickTimer = 0f;
+            this.frostDuration = 0f;
 
             // lava
             this.inLava = false;
@@ -161,18 +163,20 @@ public class Messages {
         public float y;
         public float vx;
         public float vy;
+        public float castAngle;
         public int ownerId; // id of the player who cast the projectile
         public float damage;
         public boolean piercing;
         public String spellType;
 
         public ProjectileState() {}
-        public ProjectileState(int id, float x, float y, float vx, float vy) {
+        public ProjectileState(int id, float x, float y, float vx, float vy, float castAngle) {
             this.id = id;
             this.x = x;
             this.y = y;
             this.vx = vx;
             this.vy = vy;
+            this.castAngle = castAngle;
             this.ownerId = -1;
             this.damage = 0f;
             this.piercing = false;

@@ -5,7 +5,7 @@ import java.util.List;
 
 public class PoisonBallSpell extends BaseSpell {
 
-    private static final float PROJECTILE_SPEED = 500f;
+    private static final float PROJECTILE_SPEED = 600f;
 
     public PoisonBallSpell() {
         super(8.0f); // cd time
