@@ -30,7 +30,7 @@ public class PlayScreen extends ScreenAdapter {
     private Player player;
     private boolean hudOpen;
     private Map<Integer, Player> playerSprites = new HashMap<>(); // clientId to Player sprite
-    private String mapFile = "map1.txt"; // default map file
+    private String mapFile = "dungeon.txt"; // default map file
 
     // player wizard sprite textures
     private Texture redWizardTexture;
@@ -228,24 +228,24 @@ public class PlayScreen extends ScreenAdapter {
                 char c = line.charAt(j);
                 Texture curr_tile;
                 if(c == 'P'|| c == 'U' || c == 'S') {
-                    if(Objects.equals(mapFile, "map1.txt"))
+                    if(Objects.equals(mapFile, "dungeon.txt"))
                         curr_tile = floor;
-                    else if(Objects.equals(mapFile, "map2.txt"))
+                    else if(Objects.equals(mapFile, "grass.txt"))
                         curr_tile = grass;
                     else
                         curr_tile = snow;
                 } else if (c == 'X' ) {
-                    if(Objects.equals(mapFile, "map1.txt"))
+                    if(Objects.equals(mapFile, "dungeon.txt"))
                         curr_tile = wall;
-                    else if(Objects.equals(mapFile, "map2.txt"))
+                    else if(Objects.equals(mapFile, "grass.txt"))
                         curr_tile = mud;
                     else
                         curr_tile = ice;
                 }
                 else {
-                    if(Objects.equals(mapFile, "map1.txt"))
+                    if(Objects.equals(mapFile, "dungeon.txt"))
                         curr_tile = floor;
-                    else if(Objects.equals(mapFile, "map2.txt"))
+                    else if(Objects.equals(mapFile, "grass.txt"))
                         curr_tile = grass;
                     else
                         curr_tile = snow;

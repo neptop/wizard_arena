@@ -53,11 +53,11 @@ public class LobbyScreen extends ScreenAdapter {
     private String rawHostIP; // raw IP without port
 
     private SelectBox<String> mapSelect;
-    private String selectedMap = "map1.txt";
+    private String selectedMap = "dungeon.txt";
     private static final String [] AVAILABLE_MAPS = {
-        "map1.txt",
-        "map2.txt",
-        "map3.txt"
+        "dungeon.txt",
+        "grass.txt",
+        "snow.txt"
     };
 
     // debug flag

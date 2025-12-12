@@ -20,7 +20,7 @@ public class ListenServer {
 
     private float tileSize = 64;
 
-    private String currentMapFile = "map1.txt";
+    private String currentMapFile = "dungeon.txt";
 
     private static final int MAX_CLIENTS = 4;
     private final int port;
