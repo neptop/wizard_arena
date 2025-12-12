@@ -431,7 +431,9 @@ public class ListenServer {
                                         }
                                     }
                                     p.blinkCooldown = Math.max(0f, p.blinkCooldown - dt); // reduce blink cooldown
+
                                     p.currentAnimationID = iu.currentAnimationID;
+
                                     // process rotation of players
                                     p.lookAngle = iu.lookAngle;
 
@@ -480,7 +482,6 @@ public class ListenServer {
                                                         spell.onCast(); // start cooldown if overdrive powerup not active
                                                     }
                                                     spell.spawnProjectile(projectiles, p, wallGrid, iu.aimX, iu.aimY, projectileId);
-
                                                     System.out.println("player " + clientId + " spawned projectile " + projectileId + " from spell slot " + p.selectedSpellSlot);
                                                 }
                                             }

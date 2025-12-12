@@ -349,11 +349,10 @@ public class Player extends Sprite {
         }
 
         boolean cast = Gdx.input.isButtonJustPressed(Buttons.LEFT);
-        if(cast && currentAnimation != attackAnimation) {
-            currentAnimation = attackAnimation;
+        if(cast)
             currentAnimationID = 1;
-            stateTime = 0f;
-        }
+
+
         boolean pickUpSpell = Gdx.input.isKeyJustPressed(Input.Keys.E);
 
         // send input to server
@@ -412,6 +411,7 @@ public class Player extends Sprite {
                     setX(getX() + input.moveX * speed * input.dt);
                     setY(getY() + input.moveY * speed * input.dt);
                 }
+
                 // reapply blink if it was used
                 i++;
             }
