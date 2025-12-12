@@ -8,7 +8,7 @@ public class SpectralArrowSpell extends BaseSpell {
     private static final float PROJECTILE_SPEED = 600f;
 
     public SpectralArrowSpell() {
-        super(2.0f); // cd time
+        super(1.0f); // cd time
     }
 
     public float getDamage() {

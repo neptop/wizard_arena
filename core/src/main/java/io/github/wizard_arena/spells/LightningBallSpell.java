@@ -8,7 +8,7 @@ public class LightningBallSpell extends BaseSpell {
     private static final float PROJECTILE_SPEED = 1000f;
 
     public LightningBallSpell() {
-        super(5.0f); // cd time
+        super(10.0f); // cd time
     }
 
     public float getDamage() {
