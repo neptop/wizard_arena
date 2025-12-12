@@ -22,24 +22,26 @@ Group Members - David Hoang, Erik Ronning, Jordan Watts
 - `killall`: instantly kill yourself and all other players
 - `spawnspell <name>`: spawn spell of given name at players position
   - available spells
-    - lightning
-    - magic
-    - mine
-    - starter
-    - poison
-    - arrow
-    - heal
-    - fire
-    - ice
-    - air
+    - lightning - pierces walls, very fast
+    - magic - basic starter spell, short cooldown, low damage
+    - mine - place on ground, deals damage when walked over
+    - starter - bounces off walls indefinitely (until colliding with player)
+    - poison - low contact damage, high damage over time
+    - arrow - pierces walls
+    - heal - heals player to full
+    - fire - high impact damage, low damage over time
+    - ice - slows player
+    - air - knocks player back until hitting a block
+        - when fire and poison debuff combine, super damage over time applied     
 
-- `spawnpowerup <name>`: display available commands
+
+- `spawnpowerup <name>`: spawn powerup of given name at players position
 
   - available powerups
-    - shield
-    - health
-    - overdrive
-    - speed
+    - shield - blocks one projectile
+    - health - heals player to full
+    - overdrive - disabled all spell cooldowns
+    - speed - increased player speed by 1.5x
 
 - `startlava`: enable godmode (player takes no damage)
 
