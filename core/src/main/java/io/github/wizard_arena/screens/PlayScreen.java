@@ -83,11 +83,16 @@ public class PlayScreen extends ScreenAdapter {
     private Texture poisonBallTexture;
     private Texture fireBallTexture;
     private Texture lightningBallTexture;
+    private Texture iceBallTexture;
+    private Texture magicMissileTexture;
     private Texture airBallTexture;
+    private Texture runeMineTexture;
+    private Texture spectralArrowTexture;
 
     private static class ProjectileRender {
         public float x;
         public float y;
+        public float rotation;
         public String spellType;
     }
 
@@ -101,7 +106,7 @@ public class PlayScreen extends ScreenAdapter {
 
     // valid cheat spell names
     private static final Set<String> validSpellNames = new HashSet<>(Arrays.asList(
-        "starter", "poison", "fire", "lightning", "air"
+        "starter", "poison", "fire", "lightning", "ice", "heal", "magic", "air", "mine", "arrow"
     ));
 
     // powerup pickups
@@ -109,6 +114,7 @@ public class PlayScreen extends ScreenAdapter {
     private Texture speedPowerupTexture;
     private Texture healPotionTexture;
     private Texture overdriveTexture;
+    private Texture shieldTexture;
     private static class PowerupPickupRender {
         public float x;
         public float y;
@@ -117,7 +123,7 @@ public class PlayScreen extends ScreenAdapter {
 
     // valid cheat powerup names
     private static final Set<String> validPowerupNames = new HashSet<>(Arrays.asList(
-        "speed", "health", "overdrive"
+        "speed", "health", "overdrive", "shield"
     ));
 
     // lava
@@ -188,11 +194,15 @@ public class PlayScreen extends ScreenAdapter {
         snow = new Texture(Gdx.files.internal("snow_tile.png"));
 
         // spell projectile textures
-        starterBallTexture = new Texture(Gdx.files.internal("star_spell_icon.png"));
+        starterBallTexture = new Texture(Gdx.files.internal("star_projectile.png"));
         poisonBallTexture = new Texture(Gdx.files.internal("poison_ball_projectile.png"));
         fireBallTexture = new Texture(Gdx.files.internal("fireball_projectile.png"));
         lightningBallTexture = new Texture(Gdx.files.internal("lightning_ball_projectile.png"));
-        airBallTexture = new Texture(Gdx.files.internal("ball.png"));
+        iceBallTexture = new Texture(Gdx.files.internal("ice_ball_projectile.png"));
+        magicMissileTexture = new Texture(Gdx.files.internal("magic_missile_projectile.png"));
+        airBallTexture = new Texture(Gdx.files.internal("tornado_projectile.png"));
+        runeMineTexture = new Texture(Gdx.files.internal("rune_mine_projectile.png"));
+        spectralArrowTexture = new Texture(Gdx.files.internal("spectral_arrow_projectile.png"));
 
         spellScrollTexture = new Texture(Gdx.files.internal("scroll.png"));
 
@@ -200,6 +210,7 @@ public class PlayScreen extends ScreenAdapter {
         speedPowerupTexture = new Texture(Gdx.files.internal("speed_powerup.png"));
         healPotionTexture = new Texture(Gdx.files.internal("health_potion.png"));
         overdriveTexture = new Texture(Gdx.files.internal("overdrive.png"));
+        shieldTexture = new Texture(Gdx.files.internal("forcefield.png"));
 
         // player wizard textures
         redWizardTexture = new Texture(Gdx.files.internal("red_wizard.png"));
@@ -345,6 +356,7 @@ public class PlayScreen extends ScreenAdapter {
                         p.setRoundsWon(ps.roundsWon);
                         p.setSpellSlots(ps.spellSlots);
                         p.setSpellCooldowns(ps.spellCooldownRemaining, ps.spellCooldownMax);
+                        p.setHasShield(ps.hasShield);
                     } else {
                         // remote player, directly set position
                         p.startInter(ps.x, ps.y);
@@ -353,6 +365,7 @@ public class PlayScreen extends ScreenAdapter {
                         p.playerHealthBar.setHealthRatio(ps.hp, p.maxHealth);
                         p.lookAngle = ps.lookAngle;
                         p.setRotation(ps.lookAngle);
+                        p.setHasShield(ps.hasShield);
 
 
 
@@ -410,6 +423,8 @@ public class PlayScreen extends ScreenAdapter {
                         pr.x = ps.x;
                         pr.y = ps.y;
                         pr.spellType = ps.spellType;
+                        pr.rotation = ps.castAngle;
+                        System.out.println("pr.rotation: " + pr.rotation + " ps.castAngle: " + ps.castAngle);
                     }
                 }
                 // remove projectiles that aren't in the snapshot anymore
@@ -527,15 +542,30 @@ public class PlayScreen extends ScreenAdapter {
                     case "lightning":
                         projectileTexture = lightningBallTexture;
                         break;
+                    case "ice":
+                        projectileTexture = iceBallTexture;
+                        break;
+                    case "heal":
+                        projectileTexture = healPotionTexture;
+                        break;
+                    case "magic":
+                        projectileTexture = magicMissileTexture;
+                        break;
                     case "air":
                         projectileTexture = airBallTexture;
+                        break;
+                    case "mine":
+                        projectileTexture = runeMineTexture;
+                        break;
+                    case "arrow":
+                        projectileTexture = spectralArrowTexture;
                         break;
                     default:
                         projectileTexture = starterBallTexture; // default
                         break;
                 }
             }
-            game.batch.draw(projectileTexture, pr.x, pr.y);
+            game.batch.draw(projectileTexture, pr.x, pr.y, 32, 32, 64, 64, 1f, 1f, pr.rotation, 0, 0, 64, 64, false, false);
         }
 
         // draw spell pickups
@@ -560,6 +590,9 @@ public class PlayScreen extends ScreenAdapter {
                     case "overdrive":
                         tex = overdriveTexture;
                         break;
+                    case "shield":
+                        tex = shieldTexture;
+                        break;
                     default:
                         tex = speedPowerupTexture; // default
                         break;
@@ -567,8 +600,30 @@ public class PlayScreen extends ScreenAdapter {
             }
             game.batch.draw(tex, ppr.x, ppr.y);
         }
-
         game.batch.end();
+
+        // draw shield ring around players that have shield
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.setProjectionMatrix(camera.combined);
+
+        float shieldRadius = 40f;
+        for (Player p : playerSprites.values()) {
+            if (!p.isAlive()) continue;
+            if (!p.hasShield()) continue;
+            float cx = p.getX() + (p.tileSize/2f);
+            float cy = p.getY() + (p.tileSize/2f);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(0.5f, 0.8f, 1f, 0.5f);
+            shapeRenderer.circle(cx, cy, shieldRadius);
+            shapeRenderer.end();
+
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+            shapeRenderer.setColor(0.5f, 0.8f, 1f, 0.75f);
+            shapeRenderer.circle(cx, cy, shieldRadius);
+            shapeRenderer.end();
+        }
+        Gdx.gl.glDisable(GL20.GL_BLEND);
 
         // draw lava safe circle and lava field
         if (lavaActive && lavaRadius > 0f){

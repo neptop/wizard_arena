@@ -61,6 +61,7 @@ public class Player extends Sprite {
     // health
     public float health = 100f;
     public float maxHealth = 100f;
+    private boolean hasShield = false;
 
     // ui
     public HealthBar hudHealthBar;
@@ -119,7 +120,7 @@ public class Player extends Sprite {
         createHealthBars();
         createHotbar();
         spellSlots = new String[4];
-        spellSlots[0] = "starter";
+        spellSlots[0] = "magic";
         hotbar.setSpellTypes(spellSlots);
 
         this.roundWonEmpty = new Texture(Gdx.files.internal("round_win_empty.png"));
@@ -517,6 +518,14 @@ public class Player extends Sprite {
 
     public int getSelectedSpellSlot() {
         return selectedSpellSlot;
+    }
+
+    public boolean hasShield() {
+        return hasShield;
+    }
+
+    public void setHasShield(boolean hasShield) {
+        this.hasShield = hasShield;
     }
 
     public void setSpellSlots(String[] slots) {

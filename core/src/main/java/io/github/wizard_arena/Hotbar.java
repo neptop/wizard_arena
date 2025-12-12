@@ -27,7 +27,12 @@ public class Hotbar extends Actor {
     private Texture poisonBallTex;
     private Texture fireBallTex;
     private Texture lightningBallTex;
+    private Texture iceBallTex;
+    private Texture healBallTex;
+    private Texture magicMissileTex;
     private Texture airBallTex;
+    private Texture runeMineTex;
+    private Texture spectralArrowTex;
 
     public Hotbar(float x, float y){
         hotbarTexture = new Texture(Gdx.files.internal("hotbar.png"));
@@ -37,7 +42,12 @@ public class Hotbar extends Actor {
         poisonBallTex = new Texture(Gdx.files.internal("poison_ball.png"));
         fireBallTex = new Texture(Gdx.files.internal("fireball_spell_icon.png"));
         lightningBallTex = new Texture(Gdx.files.internal("lightning_ball.png"));
-        airBallTex = new Texture(Gdx.files.internal("ball.png"));
+        iceBallTex = new Texture(Gdx.files.internal("ice_ball_spell_icon.png"));
+        healBallTex = new Texture(Gdx.files.internal("health_potion.png"));
+        magicMissileTex = new Texture(Gdx.files.internal("magic_missile_icon.png"));
+        airBallTex = new Texture(Gdx.files.internal("tornado_icon.png"));
+        runeMineTex = new Texture(Gdx.files.internal("rune_mine_icon.png"));
+        spectralArrowTex = new Texture(Gdx.files.internal("spectral_arrow_icon.png"));
 
 
         setPosition(Gdx.graphics.getWidth() - 288, 0);
@@ -100,8 +110,23 @@ public class Hotbar extends Actor {
                 case "lightning":
                     spellTex = lightningBallTex;
                     break;
+                case "ice":
+                    spellTex = iceBallTex;
+                    break;
+                case "heal":
+                    spellTex = healBallTex;
+                    break;
+                case "magic":
+                    spellTex = magicMissileTex;
+                    break;
                 case "air":
                     spellTex = airBallTex;
+                    break;
+                case "mine":
+                    spellTex = runeMineTex;
+                    break;
+                case "arrow":
+                    spellTex = spectralArrowTex;
                 default:
                     break;
             }

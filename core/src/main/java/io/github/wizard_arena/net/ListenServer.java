@@ -55,13 +55,18 @@ public class ListenServer {
             "poison",
             "fire",
             "lightning",
-            "air"
+            "ice",
+            "heal",
+            "air",
+            "mine",
+            "arrow"
     };
 
     private static final String[] MAP_POWERUP_TYPES = {
             "speed",
             "overdrive",
-            "health"
+            "health",
+            "shield"
     };
 
     private final List<SpellPickupState> spellPickups = Collections.synchronizedList(new ArrayList<>());
@@ -392,9 +397,9 @@ public class ListenServer {
 
                 // give player the starter spell
                 BaseSpell[] inv = new BaseSpell[MAX_SPELL_SLOTS];
-                inv[0] = new StarterBallSpell(); // first slot
+                inv[0] = new MagicMissileSpell(); // first slot
                 playerSpellInventories.put(clientId, inv);
-                ps.spellSlots[0] = "starter";
+                ps.spellSlots[0] = "magic";
 
                 // send JoinResponse
                 out.writeObject(new JoinResponse(true, null, clientId, serverStartTime));
@@ -946,15 +951,23 @@ public class ListenServer {
                     for (PlayerState p : players.values()) {
                         if (!p.alive) continue;
                         if (rectsOverlap(proj.x, proj.y, size, size, p.x, p.y, PLAYER_SIZE, PLAYER_SIZE)) {
-                            // hit detected
-                            damagePlayer(p.id, proj.damage);
-                            // apply debuffs based on spell type
-                            if ("poison".equals(proj.spellType)) {
-                                applyPoisonDebuff(p);
-                            } else if ("fire".equals(proj.spellType)) {
-                                applyBurnDebuff(p);
-                            } else if ("air".equals(proj.spellType)) {
-                                applyAirKnockback(p, proj.vx, proj.vy);
+                            if (p.hasShield) {
+                                // shield absorbs the hit
+                                p.hasShield = false; // remove shield
+                                System.out.println("Player " + p.id + "'s shield absorbed a hit from projectile " + proj.id);
+                            } else {
+                                // hit detected
+                                damagePlayer(p.id, proj.damage);
+                                // apply debuffs based on spell type
+                                if ("poison".equals(proj.spellType)) {
+                                    applyPoisonDebuff(p);
+                                } else if ("fire".equals(proj.spellType)) {
+                                    applyBurnDebuff(p);
+                                } else if ("air".equals(proj.spellType)) {
+                                    applyAirKnockback(p, proj.vx, proj.vy);
+                                } else if ("ice".equals(proj.spellType)) {
+                                    applyFrostDebuff(p);
+                                }
                             }
 
                             // add more spell types here...
@@ -1135,8 +1148,18 @@ public class ListenServer {
                 return new FireBallSpell();
             case "lightning":
                 return new LightningBallSpell();
+            case "ice":
+                return new IceBallSpell();
+            case "heal":
+                return new HealSpell();
+            case "magic":
+                return new MagicMissileSpell();
             case "air":
                 return new AirBallSpell();
+            case "mine":
+                return new RuneMineSpell();
+            case "arrow":
+                return new SpectralArrowSpell();
             default:
                 System.out.println("Unknown spell type: " + spellType);
                 return new StarterBallSpell(); // default spell if unknown
@@ -1177,6 +1200,10 @@ public class ListenServer {
         }
     }
 
+    private void applyFrostDebuff(PlayerState p) {
+        p.frostDuration = 2.5f;
+    }
+
     private void updateStatusEffects(float dt) {
         for (PlayerState p : players.values()) {
             if (!p.alive) continue;
@@ -1200,6 +1227,13 @@ public class ListenServer {
                 p.combinedDotDuration -= dt;
                 if (p.combinedDotDuration <= 0f) {
                     p.combinedDotDuration = 0f;
+                }
+            }
+
+            if (p.frostDuration > 0f){
+                p.frostDuration -= dt;
+                if (p.frostDuration <= 0f){
+                    p.frostDuration = 0f;
                 }
             }
 
@@ -1233,9 +1267,25 @@ public class ListenServer {
             } else {
                 p.dotTickTimer = 0f; // reset if no DOT active
             }
+
+            // apply frost slow only if player is not in speed buff
+            if (p.speedMultiplier != 1.5f && p.frostDuration > 0f){
+                changePlayerSpeed(p.id, 0.5f);
+            }
         }
     }
 
+    private void changePlayerSpeed(int playerId, float mult){
+        PlayerState p = players.get(playerId);
+        if (p == null) return;
+
+        // don't apply debuffs to god players
+        if (godModePlayers.contains(playerId)) {
+            return;
+        } else {
+            p.speedMultiplier = mult;
+        }
+    }
     // server side damage application
     private void damagePlayer(int playerId, float amount) {
         PlayerState p = players.get(playerId);
@@ -1302,6 +1352,11 @@ public class ListenServer {
                 float prevHp = p.hp;
                 p.hp = MAX_HP;
                 System.out.println("Player " + p.id + " health restored from " + prevHp + " to " + p.hp);
+                break;
+
+            case "shield":
+                p.hasShield = true;
+                System.out.println("Player " + p.id + " shield applied");
                 break;
 
             default:

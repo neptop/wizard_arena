@@ -51,6 +51,9 @@ public abstract class BaseSpell {
         return false;
     }
 
+    // should the projectile be rotated based on player look direction?
+    public boolean orientOnCast() { return false; }
+
     public void putOnCooldown() {
         this.cooldownTimer = this.cooldownTime;
     }
@@ -73,6 +76,14 @@ public abstract class BaseSpell {
         float invLen = (float) (1.0 / Math.sqrt(lenSq));
         float dirX = aimX * invLen;
         float dirY = aimY * invLen;
+
+        //Calculate rotation of projectile
+        float castAngle = 0f;
+        if (orientOnCast()){
+            double angleRad = Math.atan2(dirY, dirX);
+            double angleDeg = Math.toDegrees(angleRad);
+            castAngle = (float)angleDeg;
+        }
         float velX = dirX * projectileSpeed;
         float velY = dirY * projectileSpeed;
         float spawnX = caster.x + dirX * SPAWN_OFFSET;
@@ -104,7 +115,8 @@ public abstract class BaseSpell {
                 spawnX,
                 spawnY,
                 velX,
-                velY
+                velY,
+                castAngle
             );
             proj.ownerId = caster.id;
             proj.damage = getDamage();

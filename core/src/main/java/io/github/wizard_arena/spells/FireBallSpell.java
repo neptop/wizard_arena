@@ -5,7 +5,7 @@ import java.util.List;
 
 public class FireBallSpell extends BaseSpell {
 
-    private static final float PROJECTILE_SPEED = 500f;
+    private static final float PROJECTILE_SPEED = 1000f;
 
     public FireBallSpell() {
         super(5.0f); // cd time
@@ -14,6 +14,9 @@ public class FireBallSpell extends BaseSpell {
     public float getDamage() {
         return 20f;
     }
+
+    @Override
+    public boolean orientOnCast() { return true; }
 
     @Override
     public String getTypeId() {
