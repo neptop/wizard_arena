@@ -1142,8 +1142,6 @@ public class ListenServer {
                 return new LightningBallSpell();
             case "ice":
                 return new IceBallSpell();
-            case "air":
-                return new AirBallSpell();
             case "heal":
                 return new HealSpell();
             case "magic":
