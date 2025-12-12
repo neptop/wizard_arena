@@ -65,7 +65,8 @@ public class ListenServer {
     private static final String[] MAP_POWERUP_TYPES = {
             "speed",
             "overdrive",
-            "health"
+            "health",
+            "shield"
     };
 
     private final List<SpellPickupState> spellPickups = Collections.synchronizedList(new ArrayList<>());
@@ -949,17 +950,23 @@ public class ListenServer {
                     for (PlayerState p : players.values()) {
                         if (!p.alive) continue;
                         if (rectsOverlap(proj.x, proj.y, size, size, p.x, p.y, PLAYER_SIZE, PLAYER_SIZE)) {
-                            // hit detected
-                            damagePlayer(p.id, proj.damage);
-                            // apply debuffs based on spell type
-                            if ("poison".equals(proj.spellType)) {
-                                applyPoisonDebuff(p);
-                            } else if ("fire".equals(proj.spellType)) {
-                                applyBurnDebuff(p);
-                            } else if ("ice".equals(proj.spellType)) {
-                                applyFrostDebuff(p);
-                            } else if ("air".equals(proj.spellType)) {
-                                applyAirKnockback(p, proj.vx, proj.vy);
+                            if (p.hasShield) {
+                                // shield absorbs the hit
+                                p.hasShield = false; // remove shield
+                                System.out.println("Player " + p.id + "'s shield absorbed a hit from projectile " + proj.id);
+                            } else {
+                                // hit detected
+                                damagePlayer(p.id, proj.damage);
+                                // apply debuffs based on spell type
+                                if ("poison".equals(proj.spellType)) {
+                                    applyPoisonDebuff(p);
+                                } else if ("fire".equals(proj.spellType)) {
+                                    applyBurnDebuff(p);
+                                } else if ("air".equals(proj.spellType)) {
+                                    applyAirKnockback(p, proj.vx, proj.vy);
+                                } else if ("ice".equals(proj.spellType)) {
+                                    applyFrostDebuff(p);
+                                }
                             }
 
                             // add more spell types here...
@@ -1344,6 +1351,11 @@ public class ListenServer {
                 float prevHp = p.hp;
                 p.hp = MAX_HP;
                 System.out.println("Player " + p.id + " health restored from " + prevHp + " to " + p.hp);
+                break;
+
+            case "shield":
+                p.hasShield = true;
+                System.out.println("Player " + p.id + " shield applied");
                 break;
 
             default:

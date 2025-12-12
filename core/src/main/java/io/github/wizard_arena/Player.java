@@ -60,6 +60,7 @@ public class Player extends Sprite {
     // health
     public float health = 100f;
     public float maxHealth = 100f;
+    private boolean hasShield = false;
 
     // ui
     public HealthBar hudHealthBar;
@@ -514,6 +515,14 @@ public class Player extends Sprite {
 
     public int getSelectedSpellSlot() {
         return selectedSpellSlot;
+    }
+
+    public boolean hasShield() {
+        return hasShield;
+    }
+
+    public void setHasShield(boolean hasShield) {
+        this.hasShield = hasShield;
     }
 
     public void setSpellSlots(String[] slots) {

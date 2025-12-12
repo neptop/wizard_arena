@@ -114,6 +114,7 @@ public class PlayScreen extends ScreenAdapter {
     private Texture speedPowerupTexture;
     private Texture healPotionTexture;
     private Texture overdriveTexture;
+    private Texture shieldTexture;
     private static class PowerupPickupRender {
         public float x;
         public float y;
@@ -122,7 +123,7 @@ public class PlayScreen extends ScreenAdapter {
 
     // valid cheat powerup names
     private static final Set<String> validPowerupNames = new HashSet<>(Arrays.asList(
-        "speed", "health", "overdrive"
+        "speed", "health", "overdrive", "shield"
     ));
 
     // lava
@@ -209,6 +210,7 @@ public class PlayScreen extends ScreenAdapter {
         speedPowerupTexture = new Texture(Gdx.files.internal("speed_powerup.png"));
         healPotionTexture = new Texture(Gdx.files.internal("health_potion.png"));
         overdriveTexture = new Texture(Gdx.files.internal("overdrive.png"));
+        shieldTexture = new Texture(Gdx.files.internal("forcefield.png"));
 
         // player wizard textures
         redWizardTexture = new Texture(Gdx.files.internal("red_wizard.png"));
@@ -353,6 +355,7 @@ public class PlayScreen extends ScreenAdapter {
                         p.setRoundsWon(ps.roundsWon);
                         p.setSpellSlots(ps.spellSlots);
                         p.setSpellCooldowns(ps.spellCooldownRemaining, ps.spellCooldownMax);
+                        p.setHasShield(ps.hasShield);
                     } else {
                         // remote player, directly set position
                         p.startInter(ps.x, ps.y);
@@ -361,6 +364,7 @@ public class PlayScreen extends ScreenAdapter {
                         p.playerHealthBar.setHealthRatio(ps.hp, p.maxHealth);
                         p.lookAngle = ps.lookAngle;
                         p.setRotation(ps.lookAngle);
+                        p.setHasShield(ps.hasShield);
 
 
                         p.currentAnimationID = ps.currentAnimationID;
@@ -582,6 +586,9 @@ public class PlayScreen extends ScreenAdapter {
                     case "overdrive":
                         tex = overdriveTexture;
                         break;
+                    case "shield":
+                        tex = shieldTexture;
+                        break;
                     default:
                         tex = speedPowerupTexture; // default
                         break;
@@ -589,8 +596,30 @@ public class PlayScreen extends ScreenAdapter {
             }
             game.batch.draw(tex, ppr.x, ppr.y);
         }
-
         game.batch.end();
+
+        // draw shield ring around players that have shield
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.setProjectionMatrix(camera.combined);
+
+        float shieldRadius = 40f;
+        for (Player p : playerSprites.values()) {
+            if (!p.isAlive()) continue;
+            if (!p.hasShield()) continue;
+            float cx = p.getX() + (p.tileSize/2f);
+            float cy = p.getY() + (p.tileSize/2f);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(0.5f, 0.8f, 1f, 0.5f);
+            shapeRenderer.circle(cx, cy, shieldRadius);
+            shapeRenderer.end();
+
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+            shapeRenderer.setColor(0.5f, 0.8f, 1f, 0.75f);
+            shapeRenderer.circle(cx, cy, shieldRadius);
+            shapeRenderer.end();
+        }
+        Gdx.gl.glDisable(GL20.GL_BLEND);
 
         // draw lava safe circle and lava field
         if (lavaActive && lavaRadius > 0f){

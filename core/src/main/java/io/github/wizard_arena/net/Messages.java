@@ -92,9 +92,14 @@ public class Messages {
         public boolean alive;
         public int roundsWon;
         public int selectedSpellSlot;
+
+        // powerup tracking
         public float speedMultiplier;
         public float speedBoostDuration;
         public float overdriveDuration;
+        public boolean hasShield;
+
+        // lava tracking
         public boolean inLava;
         public float lavaTickTimer;
 
@@ -126,9 +131,12 @@ public class Messages {
             this.blinkCooldown = 0f;
             this.alive = true;
             this.roundsWon = 0;
+
+            // powerups
             this.selectedSpellSlot = 0;
             this.speedMultiplier = 1.0f;
             this.overdriveDuration = 0f;
+            this.hasShield = false;
 
             // knockback
             this.knockbackX = 0f;
