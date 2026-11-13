@@ -25,7 +25,7 @@ Group Members - David Hoang, Erik Ronning, Jordan Watts
     - lightning - pierces walls, very fast
     - magic - basic starter spell, short cooldown, low damage
     - mine - place on ground, deals damage when walked over
-    - starter - bounces off walls indefinitely (until colliding with player)
+    - star - bounces off walls indefinitely (until colliding with player)
     - poison - low contact damage, high damage over time
     - arrow - pierces walls
     - heal - heals player to full
