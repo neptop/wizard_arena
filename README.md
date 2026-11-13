@@ -43,7 +43,7 @@ Group Members - David Hoang, Erik Ronning, Jordan Watts
     - overdrive - disabled all spell cooldowns
     - speed - increased player speed by 1.5x
 
-- `startlava`: enable godmode (player takes no damage)
+- `startlava`: start the lava ring early
 
 
 >## Proposed Low-bar Goals
